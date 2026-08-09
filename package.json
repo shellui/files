@@ -1,0 +1,34 @@
+{
+  "name": "shellui-files",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ShellUI file manager — embedded in the admin panel, talks to storage-service",
+  "type": "module",
+  "scripts": {
+    "start": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "build:sdk": "pnpm -C ../shellui run build:sdk"
+  },
+  "author": "ShellUI",
+  "license": "MIT",
+  "packageManager": "pnpm@10.30.0",
+  "dependencies": {
+    "@shellui/sdk": "file:../shellui/packages/sdk",
+    "i18next": "^24.2.0",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-i18next": "^15.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.14",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.16",
+    "typescript": "~5.7.2",
+    "vite": "^6.0.3"
+  }
+}
