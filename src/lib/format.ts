@@ -28,3 +28,8 @@ export function isValidFolderName(name: string): boolean {
   if (trimmed === FOLDER_PLACEHOLDER) return false;
   return true;
 }
+
+/** Same path-segment rules as folders (no slashes / reserved names). */
+export function isValidFileName(name: string): boolean {
+  return isValidFolderName(name);
+}

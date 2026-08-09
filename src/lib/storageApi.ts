@@ -325,6 +325,24 @@ export async function renameFolder(
   );
 }
 
+/** Rename a file (same-bucket move via `/object/move`). */
+export async function renameObject(
+  token: string,
+  bucket: string,
+  fromPath: string,
+  toPath: string,
+): Promise<void> {
+  const from = fromPath.replace(/^\/+|\/+$/g, '');
+  const to = toPath.replace(/^\/+|\/+$/g, '');
+  await request('/storage/v1/object/move', token, {
+    method: 'POST',
+    body: JSON.stringify({
+      from: `${bucket}/${from}`,
+      to: `${bucket}/${to}`,
+    }),
+  });
+}
+
 /** Fetch object bytes for in-browser viewing (inline Content-Disposition). */
 export async function fetchObjectBlob(
   token: string,

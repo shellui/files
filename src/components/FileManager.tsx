@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useShelluiAccessSession } from '@/hooks/useShelluiAccessToken';
 import { subscribeFilesListChanged } from '@/lib/filesEvents';
-import { formatBytes, isValidFolderName, joinPath } from '@/lib/format';
+import { formatBytes, isValidFileName, isValidFolderName, joinPath } from '@/lib/format';
 import {
   buildPermissionsModalUrl,
   buildShareModalUrl,
@@ -36,6 +36,7 @@ import {
   listObjects,
   pickDefaultBucket,
   renameFolder,
+  renameObject,
   type Bucket,
   type StorageListItem,
   uploadObject,
@@ -84,6 +85,7 @@ export function FileManager() {
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [renamingName, setRenamingName] = useState<string | null>(null);
+  const [renamingIsFolder, setRenamingIsFolder] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [busyName, setBusyName] = useState<string | null>(null);
 
@@ -215,40 +217,50 @@ export function FileManager() {
     setCreatingFolder(false);
     setNewFolderName('');
     setRenamingName(null);
+    setRenamingIsFolder(false);
     setRenameValue('');
   }, [bucket, prefix]);
 
-  function startRenameFolder(folderName: string) {
+  function startRename(itemName: string, isFolder: boolean) {
     setCreatingFolder(false);
-    setRenamingName(folderName);
-    setRenameValue(folderName);
+    setRenamingName(itemName);
+    setRenamingIsFolder(isFolder);
+    setRenameValue(itemName);
     setError(null);
   }
 
-  function cancelRenameFolder() {
+  function cancelRename() {
     setRenamingName(null);
+    setRenamingIsFolder(false);
     setRenameValue('');
   }
 
-  async function handleRenameFolder() {
+  async function handleRename() {
     if (!token || !bucket || !canWrite || !renamingName) return;
     const nextName = renameValue.trim();
-    if (!isValidFolderName(nextName)) {
-      setError(t('invalidFolderName'));
+    if (renamingIsFolder) {
+      if (!isValidFolderName(nextName)) {
+        setError(t('invalidFolderName'));
+        return;
+      }
+    } else if (!isValidFileName(nextName)) {
+      setError(t('invalidFileName'));
       return;
     }
     if (nextName === renamingName) {
-      cancelRenameFolder();
+      cancelRename();
       return;
     }
     const conflict = items.some(
       (item) =>
-        item.id == null &&
+        (item.id == null) === renamingIsFolder &&
         item.name !== renamingName &&
         item.name.toLowerCase() === nextName.toLowerCase(),
     );
     if (conflict) {
-      setError(t('folderExists', { name: nextName }));
+      setError(
+        t(renamingIsFolder ? 'folderExists' : 'fileExists', { name: nextName }),
+      );
       return;
     }
 
@@ -257,8 +269,12 @@ export function FileManager() {
     setBusyName(fromPath);
     setError(null);
     try {
-      await renameFolder(token, bucket, fromPath, toPath);
-      cancelRenameFolder();
+      if (renamingIsFolder) {
+        await renameFolder(token, bucket, fromPath, toPath);
+      } else {
+        await renameObject(token, bucket, fromPath, toPath);
+      }
+      cancelRename();
       await loadObjects();
     } catch (err) {
       handleApiError(err);
@@ -666,16 +682,20 @@ export function FileManager() {
                         className="border-b border-border/70"
                       >
                         <td className="px-3 py-2">
-                          {isFolder && renamingName === item.name ? (
+                          {renamingName === item.name && renamingIsFolder === isFolder ? (
                             <div className="flex min-w-[12rem] flex-wrap items-center gap-2">
-                              <Folder className="h-4 w-4 shrink-0 text-primary" />
+                              {isFolder ? (
+                                <Folder className="h-4 w-4 shrink-0 text-primary" />
+                              ) : (
+                                <FileIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                              )}
                               <input
                                 className="min-w-[8rem] flex-1 rounded-md border border-input bg-background px-2 py-1 text-sm"
                                 value={renameValue}
                                 onChange={(e) => setRenameValue(e.target.value)}
                                 onKeyDown={(e) => {
-                                  if (e.key === 'Enter') void handleRenameFolder();
-                                  if (e.key === 'Escape') cancelRenameFolder();
+                                  if (e.key === 'Enter') void handleRename();
+                                  if (e.key === 'Escape') cancelRename();
                                 }}
                                 autoFocus
                                 disabled={busy}
@@ -683,7 +703,7 @@ export function FileManager() {
                               <button
                                 type="button"
                                 className="rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground disabled:opacity-50"
-                                onClick={() => void handleRenameFolder()}
+                                onClick={() => void handleRename()}
                                 disabled={busy}
                               >
                                 {t('renameSave')}
@@ -691,7 +711,7 @@ export function FileManager() {
                               <button
                                 type="button"
                                 className="rounded-md border border-border px-2 py-1 text-xs"
-                                onClick={cancelRenameFolder}
+                                onClick={cancelRename}
                                 disabled={busy}
                               >
                                 {t('cancel')}
@@ -734,7 +754,7 @@ export function FileManager() {
                               : '—'}
                         </td>
                         <td className="px-3 py-2">
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center justify-end gap-1">
                             {!isFolder ? (
                               <>
                                 <button
@@ -776,13 +796,16 @@ export function FileManager() {
                                 {t('open')}
                               </button>
                             )}
-                            {isFolder && canWrite ? (
+                            {canWrite ? (
                               <button
                                 type="button"
                                 className="rounded p-1.5 hover:bg-muted disabled:opacity-50"
-                                title={t('renameFolder')}
-                                onClick={() => startRenameFolder(item.name)}
-                                disabled={busy || renamingName === item.name}
+                                title={isFolder ? t('renameFolder') : t('renameFile')}
+                                onClick={() => startRename(item.name, isFolder)}
+                                disabled={
+                                  busy ||
+                                  (renamingName === item.name && renamingIsFolder === isFolder)
+                                }
                               >
                                 <Pencil className="h-4 w-4" />
                               </button>
