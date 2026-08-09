@@ -13,6 +13,7 @@ import { formatBytes, joinPath } from '@/lib/format';
 import {
   downloadObject,
   fetchObjectBlob,
+  isStorageAuthError,
   type StorageListItem,
 } from '@/lib/storageApi';
 import {
@@ -72,6 +73,7 @@ export function FileViewer({
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [authFailed, setAuthFailed] = useState(false);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [textContent, setTextContent] = useState<string | null>(null);
   const [resolvedMime, setResolvedMime] = useState(
@@ -106,6 +108,7 @@ export function FileViewer({
     async function load() {
       setLoading(true);
       setError(null);
+      setAuthFailed(false);
       setTextContent(null);
       setObjectUrl(null);
 
@@ -144,7 +147,14 @@ export function FileViewer({
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : t('error'));
+          if (isStorageAuthError(err)) {
+            setAuthFailed(true);
+            setError(t('sessionExpired'));
+            setTextContent(null);
+            setObjectUrl(null);
+          } else {
+            setError(err instanceof Error ? err.message : t('error'));
+          }
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -160,6 +170,7 @@ export function FileViewer({
   }, [token, bucket, target.path, target.item.metadata?.mimetype, target.item.metadata?.size, target.item.name, t]);
 
   const handleDownload = useCallback(async () => {
+    if (authFailed) return;
     setDownloading(true);
     try {
       const blob = await downloadObject(token, bucket, target.path);
@@ -173,11 +184,18 @@ export function FileViewer({
       a.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('error'));
+      if (isStorageAuthError(err)) {
+        setAuthFailed(true);
+        setError(t('sessionExpired'));
+        setTextContent(null);
+        setObjectUrl(null);
+      } else {
+        setError(err instanceof Error ? err.message : t('error'));
+      }
     } finally {
       setDownloading(false);
     }
-  }, [token, bucket, target.path, target.item.name, t]);
+  }, [authFailed, token, bucket, target.path, target.item.name, t]);
 
   const markdownHtml = useMemo(
     () => (kind === 'markdown' && textContent != null ? renderMarkdownLite(textContent) : null),
@@ -242,7 +260,7 @@ export function FileViewer({
               type="button"
               className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-50"
               onClick={() => void handleDownload()}
-              disabled={downloading}
+              disabled={downloading || authFailed}
             >
               {downloading ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -274,14 +292,16 @@ export function FileViewer({
             <div className="flex h-full min-h-[12rem] flex-col items-center justify-center gap-3 p-8 text-center">
               <EyeOff className="h-8 w-8 text-muted-foreground" />
               <p className="text-sm text-destructive">{error}</p>
-              <button
-                type="button"
-                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
-                onClick={() => void handleDownload()}
-              >
-                <Download className="h-3.5 w-3.5" />
-                {t('download')}
-              </button>
+              {!authFailed ? (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
+                  onClick={() => void handleDownload()}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  {t('download')}
+                </button>
+              ) : null}
             </div>
           ) : kind === 'image' && objectUrl ? (
             <div className="flex h-full min-h-[12rem] items-center justify-center p-4 md:p-6">

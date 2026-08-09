@@ -13,7 +13,7 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
-import { useShelluiAccessToken } from '@/hooks/useShelluiAccessToken';
+import { useShelluiAccessSession } from '@/hooks/useShelluiAccessToken';
 import { formatBytes, isValidFolderName, joinPath } from '@/lib/format';
 import {
   createFolder,
@@ -22,9 +22,9 @@ import {
   downloadObject,
   getFolderStats,
   getStorageBaseUrl,
+  isStorageAuthError,
   listBuckets,
   listObjects,
-  StorageApiError,
   type Bucket,
   type StorageListItem,
   uploadObject,
@@ -40,7 +40,7 @@ function accessLabelKey(audience: string | undefined): string {
 
 export function FileManager() {
   const { t } = useTranslation();
-  const token = useShelluiAccessToken();
+  const { token, sessionExpired } = useShelluiAccessSession();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [buckets, setBuckets] = useState<Bucket[]>([]);
@@ -85,7 +85,7 @@ export function FileManager() {
       });
       setError(null);
     } catch (err) {
-      if (err instanceof StorageApiError && (err.status === 401 || err.status === 403)) {
+      if (isStorageAuthError(err)) {
         setBuckets([]);
         setBucket('');
         setItems([]);
@@ -107,7 +107,7 @@ export function FileManager() {
       const list = await listObjects(token, bucket, prefix);
       setItems(list);
     } catch (err) {
-      if (err instanceof StorageApiError && (err.status === 401 || err.status === 403)) {
+      if (isStorageAuthError(err)) {
         setItems([]);
         setBuckets([]);
         setBucket('');
@@ -120,15 +120,22 @@ export function FileManager() {
     }
   }, [token, bucket, prefix, t]);
 
+  const clearSessionData = useCallback(() => {
+    setBuckets([]);
+    setBucket('');
+    setItems([]);
+  }, []);
+
   useEffect(() => {
     if (!token) {
-      setBuckets([]);
-      setBucket('');
-      setItems([]);
+      clearSessionData();
+      if (sessionExpired) {
+        setError(t('sessionExpired'));
+      }
       return;
     }
     void loadBuckets();
-  }, [token, loadBuckets]);
+  }, [token, sessionExpired, loadBuckets, clearSessionData, t]);
 
   useEffect(() => {
     void loadObjects();
@@ -161,7 +168,12 @@ export function FileManager() {
       setNewFolderName('');
       setPrefix(folderPath);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('error'));
+      if (isStorageAuthError(err)) {
+        clearSessionData();
+        setError(t('sessionExpired'));
+      } else {
+        setError(err instanceof Error ? err.message : t('error'));
+      }
     } finally {
       setBusyName(null);
     }
@@ -176,7 +188,12 @@ export function FileManager() {
       try {
         await uploadObject(token, bucket, path, file);
       } catch (err) {
-        setError(err instanceof Error ? err.message : t('error'));
+        if (isStorageAuthError(err)) {
+          clearSessionData();
+          setError(t('sessionExpired'));
+        } else {
+          setError(err instanceof Error ? err.message : t('error'));
+        }
         break;
       }
     }
@@ -245,7 +262,12 @@ export function FileManager() {
         await deleteFolder(token, bucket, path);
         await loadObjects();
       } catch (err) {
-        setError(err instanceof Error ? err.message : t('error'));
+        if (isStorageAuthError(err)) {
+          clearSessionData();
+          setError(t('sessionExpired'));
+        } else {
+          setError(err instanceof Error ? err.message : t('error'));
+        }
       } finally {
         setBusyName(null);
       }
@@ -260,7 +282,12 @@ export function FileManager() {
       await deleteObject(token, bucket, path);
       await loadObjects();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('error'));
+      if (isStorageAuthError(err)) {
+        clearSessionData();
+        setError(t('sessionExpired'));
+      } else {
+        setError(err instanceof Error ? err.message : t('error'));
+      }
     } finally {
       setBusyName(null);
     }
@@ -283,7 +310,12 @@ export function FileManager() {
       a.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('error'));
+      if (isStorageAuthError(err)) {
+        clearSessionData();
+        setError(t('sessionExpired'));
+      } else {
+        setError(err instanceof Error ? err.message : t('error'));
+      }
     } finally {
       setBusyName(null);
     }
@@ -307,8 +339,12 @@ export function FileManager() {
 
   if (!token) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-6 text-sm text-muted-foreground">
-        {t('noToken')}
+      <div
+        className={`flex min-h-screen items-center justify-center p-6 text-sm ${
+          sessionExpired ? 'text-destructive' : 'text-muted-foreground'
+        }`}
+      >
+        {sessionExpired ? t('sessionExpired') : t('noToken')}
       </div>
     );
   }

@@ -46,6 +46,11 @@ export class StorageApiError extends Error {
   }
 }
 
+/** 401/403 from storage-service — treat as signed-out / expired session for UI. */
+export function isStorageAuthError(err: unknown): err is StorageApiError {
+  return err instanceof StorageApiError && (err.status === 401 || err.status === 403);
+}
+
 function storageBaseUrl(): string {
   return (import.meta.env.VITE_STORAGE_URL || 'http://localhost:8001').replace(/\/$/, '');
 }

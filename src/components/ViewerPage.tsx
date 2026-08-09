@@ -3,18 +3,19 @@ import { useTranslation } from 'react-i18next';
 import shellui from '@shellui/sdk';
 import { Loader2 } from 'lucide-react';
 import { FileViewer, type ViewerTarget } from '@/components/FileViewer';
-import { useShelluiAccessToken } from '@/hooks/useShelluiAccessToken';
+import { useShelluiAccessSession } from '@/hooks/useShelluiAccessToken';
 import { joinPath } from '@/lib/format';
-import { listObjects } from '@/lib/storageApi';
+import { isStorageAuthError, listObjects } from '@/lib/storageApi';
 import { parseViewerHash, setViewerHash } from '@/lib/viewerRoute';
 
 export function ViewerPage() {
   const { t } = useTranslation();
-  const token = useShelluiAccessToken();
+  const { token, sessionExpired } = useShelluiAccessSession();
   const [route, setRoute] = useState(() => parseViewerHash());
   const [siblings, setSiblings] = useState<ViewerTarget[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [authFailed, setAuthFailed] = useState(false);
 
   useEffect(() => {
     const onHash = () => setRoute(parseViewerHash());
@@ -41,10 +42,15 @@ export function ViewerPage() {
       if (!token || !route?.bucket || !route.path) {
         setSiblings([]);
         setLoadingList(false);
+        if (sessionExpired) {
+          setAuthFailed(true);
+          setError(t('sessionExpired'));
+        }
         return;
       }
       setLoadingList(true);
       setError(null);
+      setAuthFailed(false);
       try {
         const items = await listObjects(token, route.bucket, prefix);
         if (cancelled) return;
@@ -57,8 +63,13 @@ export function ViewerPage() {
         setSiblings(next);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : t('error'));
           setSiblings([]);
+          if (isStorageAuthError(err) || sessionExpired) {
+            setAuthFailed(true);
+            setError(t('sessionExpired'));
+          } else {
+            setError(err instanceof Error ? err.message : t('error'));
+          }
         }
       } finally {
         if (!cancelled) setLoadingList(false);
@@ -68,12 +79,15 @@ export function ViewerPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, route?.bucket, route?.path, prefix, t]);
+  }, [token, sessionExpired, route?.bucket, route?.path, prefix, t]);
 
   const target = useMemo(() => {
+    // Never synthesize a preview target after auth failure — that would retry blob fetch.
+    if (authFailed) return null;
     if (!route?.path || !fileName) return null;
     const fromList = siblings.find((s) => s.path === route.path);
     if (fromList) return fromList;
+    if (error) return null;
     return {
       item: {
         id: 'pending',
@@ -82,7 +96,7 @@ export function ViewerPage() {
       },
       path: route.path,
     } satisfies ViewerTarget;
-  }, [route?.path, fileName, siblings]);
+  }, [authFailed, error, route?.path, fileName, siblings]);
 
   const handleClose = useCallback(() => {
     shellui.closeModal();
@@ -100,6 +114,14 @@ export function ViewerPage() {
     return (
       <div className="flex h-full min-h-screen items-center justify-center p-6 text-sm text-muted-foreground">
         {t('viewerMissingParams')}
+      </div>
+    );
+  }
+
+  if (sessionExpired || authFailed) {
+    return (
+      <div className="flex h-full min-h-screen items-center justify-center p-6 text-sm text-destructive">
+        {t('sessionExpired')}
       </div>
     );
   }
@@ -122,7 +144,7 @@ export function ViewerPage() {
     );
   }
 
-  if (error && !target) {
+  if (error) {
     return (
       <div className="flex h-full min-h-screen items-center justify-center p-6 text-sm text-destructive">
         {error}
