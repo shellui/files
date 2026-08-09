@@ -4,7 +4,10 @@ ShellUI file manager — a small React app embedded in the **administration** if
 
 ## Features
 
-- Bucket list, nested folders, upload / download / delete
+- **Company files** — one system bucket per company (`company`), plus optional read-only connector mounts
+- Nested folders, upload / download / rename / delete (gated by `access.can_write`)
+- **Path access grants** — manage folder/file permissions (allow/deny for users or the whole company)
+- **Public share links** — capability URLs with expiry and/or download limits; anonymous redeem on storage-service
 - Theme synced from ShellUI (`appearance`)
 - i18n (`en` / `fr`) synced from ShellUI language settings
 - Auth via `SHELLUI_SETTINGS.accessToken` (Bearer JWT)
@@ -37,4 +40,6 @@ storage: {
 },
 ```
 
-Admin sidebar → **Storage** → **Files**. ShellUI shares the session JWT with `storage.filesUrl` (including `#/viewer` preview modals on the same origin).
+Admin sidebar → **Storage** → **Files**. ShellUI shares the session JWT with `storage.filesUrl`. Preview, permissions, and share-link UIs open in the ShellUI modal via hash routes on the same origin (`#/viewer`, `#/permissions`, `#/share`).
+
+Share link downloads are served by storage-service at `/storage/v1/share/link/{token}` (no JWT). See storage-service [access](../storage-service/docs/access.md) and [sharing](../storage-service/docs/sharing.md) docs.

@@ -13,6 +13,7 @@ import { formatBytes, joinPath } from '@/lib/format';
 import {
   downloadObject,
   fetchObjectBlob,
+  isStorageAccessDenied,
   isStorageAuthError,
   type StorageListItem,
 } from '@/lib/storageApi';
@@ -152,6 +153,10 @@ export function FileViewer({
             setError(t('sessionExpired'));
             setTextContent(null);
             setObjectUrl(null);
+          } else if (isStorageAccessDenied(err)) {
+            setError(t('accessDenied'));
+            setTextContent(null);
+            setObjectUrl(null);
           } else {
             setError(err instanceof Error ? err.message : t('error'));
           }
@@ -189,6 +194,8 @@ export function FileViewer({
         setError(t('sessionExpired'));
         setTextContent(null);
         setObjectUrl(null);
+      } else if (isStorageAccessDenied(err)) {
+        setError(t('accessDenied'));
       } else {
         setError(err instanceof Error ? err.message : t('error'));
       }

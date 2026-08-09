@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import shellui from '@shellui/sdk';
 import { Loader2 } from 'lucide-react';
 import { FileViewer, type ViewerTarget } from '@/components/FileViewer';
 import { useShelluiAccessSession } from '@/hooks/useShelluiAccessToken';
 import { joinPath } from '@/lib/format';
-import { isStorageAuthError, listObjects } from '@/lib/storageApi';
+import { closeAppModal } from '@/lib/modalRoutes';
+import { isStorageAccessDenied, isStorageAuthError, listObjects } from '@/lib/storageApi';
 import { parseViewerHash, setViewerHash } from '@/lib/viewerRoute';
 
 export function ViewerPage() {
@@ -67,6 +67,8 @@ export function ViewerPage() {
           if (isStorageAuthError(err) || sessionExpired) {
             setAuthFailed(true);
             setError(t('sessionExpired'));
+          } else if (isStorageAccessDenied(err)) {
+            setError(t('accessDenied'));
           } else {
             setError(err instanceof Error ? err.message : t('error'));
           }
@@ -99,7 +101,7 @@ export function ViewerPage() {
   }, [authFailed, error, route?.path, fileName, siblings]);
 
   const handleClose = useCallback(() => {
-    shellui.closeModal();
+    closeAppModal();
   }, []);
 
   const handleNavigate = useCallback(

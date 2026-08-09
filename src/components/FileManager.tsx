@@ -8,13 +8,21 @@ import {
   File as FileIcon,
   Folder,
   FolderPlus,
+  Link2,
   Loader2,
+  Pencil,
   RefreshCw,
+  Shield,
   Trash2,
   Upload,
 } from 'lucide-react';
 import { useShelluiAccessSession } from '@/hooks/useShelluiAccessToken';
+import { subscribeFilesListChanged } from '@/lib/filesEvents';
 import { formatBytes, isValidFolderName, joinPath } from '@/lib/format';
+import {
+  buildPermissionsModalUrl,
+  buildShareModalUrl,
+} from '@/lib/modalRoutes';
 import {
   createFolder,
   deleteFolder,
@@ -22,9 +30,12 @@ import {
   downloadObject,
   getFolderStats,
   getStorageBaseUrl,
+  isStorageAccessDenied,
   isStorageAuthError,
   listBuckets,
   listObjects,
+  pickDefaultBucket,
+  renameFolder,
   type Bucket,
   type StorageListItem,
   uploadObject,
@@ -35,7 +46,28 @@ function accessLabelKey(audience: string | undefined): string {
   if (audience === 'company') return 'accessCompany';
   if (audience === 'owner') return 'accessOwner';
   if (audience === 'connector') return 'accessConnector';
+  if (audience === 'restricted') return 'accessRestricted';
+  if (audience === 'limited') return 'accessLimited';
   return 'accessUnknown';
+}
+
+function accessRowLabel(
+  access: StorageListItem['access'] | undefined,
+  fallbackAudience: string | undefined,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string {
+  const audience = access?.audience || fallbackAudience;
+  if (audience === 'restricted') {
+    const n = access?.allowed_user_ids?.length ?? 0;
+    if (n > 0) return t('accessRestrictedUsers', { count: n });
+    return t('accessRestricted');
+  }
+  if (audience === 'limited') {
+    const grants = access?.grant_count ?? 0;
+    if (grants > 0) return t('accessLimitedGrants', { count: grants });
+    return t('accessLimited');
+  }
+  return t(accessLabelKey(audience));
 }
 
 export function FileManager() {
@@ -51,12 +83,19 @@ export function FileManager() {
   const [error, setError] = useState<string | null>(null);
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+  const [renamingName, setRenamingName] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
   const [busyName, setBusyName] = useState<string | null>(null);
 
   const selectedBucket = useMemo(
     () => buckets.find((b) => b.name === bucket) ?? null,
     [buckets, bucket],
   );
+
+  const canWrite = selectedBucket?.access?.can_write !== false;
+  const grantsEnabled = selectedBucket?.access?.grants_enabled === true;
+  const shareable = selectedBucket?.access?.shareable === true && canWrite;
+  const showLocations = buckets.length > 1;
 
   const crumbs = useMemo(() => {
     const rootLabel = selectedBucket?.display_name || bucket || t('pathRoot');
@@ -70,6 +109,36 @@ export function FileManager() {
     return out;
   }, [bucket, prefix, selectedBucket, t]);
 
+  const clearSessionData = useCallback(() => {
+    setBuckets([]);
+    setBucket('');
+    setItems([]);
+  }, []);
+
+  function openShelluiOrHash(url: string, hash: string) {
+    if (typeof window !== 'undefined' && window.parent !== window) {
+      shellui.openModal(url);
+      return;
+    }
+    window.location.hash = hash;
+  }
+
+  const handleApiError = useCallback(
+    (err: unknown) => {
+      if (isStorageAuthError(err)) {
+        clearSessionData();
+        setError(t('sessionExpired'));
+        return;
+      }
+      if (isStorageAccessDenied(err)) {
+        setError(t('accessDenied'));
+        return;
+      }
+      setError(err instanceof Error ? err.message : t('error'));
+    },
+    [clearSessionData, t],
+  );
+
   const loadBuckets = useCallback(async () => {
     if (!token) {
       setBuckets([]);
@@ -81,20 +150,13 @@ export function FileManager() {
       setBuckets(list);
       setBucket((current) => {
         if (current && list.some((b) => b.name === current)) return current;
-        return list[0]?.name ?? '';
+        return pickDefaultBucket(list);
       });
       setError(null);
     } catch (err) {
-      if (isStorageAuthError(err)) {
-        setBuckets([]);
-        setBucket('');
-        setItems([]);
-        setError(t('sessionExpired'));
-        return;
-      }
-      setError(err instanceof Error ? err.message : t('error'));
+      handleApiError(err);
     }
-  }, [token, t]);
+  }, [token, handleApiError]);
 
   const loadObjects = useCallback(async () => {
     if (!token || !bucket) {
@@ -107,24 +169,24 @@ export function FileManager() {
       const list = await listObjects(token, bucket, prefix);
       setItems(list);
     } catch (err) {
-      if (isStorageAuthError(err)) {
-        setItems([]);
-        setBuckets([]);
-        setBucket('');
-        setError(t('sessionExpired'));
-      } else {
-        setError(err instanceof Error ? err.message : t('error'));
-      }
+      handleApiError(err);
+      if (isStorageAuthError(err)) setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [token, bucket, prefix, t]);
+  }, [token, bucket, prefix, handleApiError]);
 
-  const clearSessionData = useCallback(() => {
-    setBuckets([]);
-    setBucket('');
-    setItems([]);
-  }, []);
+  /** Refresh listing without the full-page loading flash (e.g. after access edits). */
+  const refreshObjectsQuietly = useCallback(async () => {
+    if (!token || !bucket) return;
+    try {
+      const list = await listObjects(token, bucket, prefix);
+      setItems(list);
+    } catch (err) {
+      handleApiError(err);
+      if (isStorageAuthError(err)) setItems([]);
+    }
+  }, [token, bucket, prefix, handleApiError]);
 
   useEffect(() => {
     if (!token) {
@@ -142,12 +204,71 @@ export function FileManager() {
   }, [loadObjects]);
 
   useEffect(() => {
+    return subscribeFilesListChanged((event) => {
+      if (event.reason !== 'access') return;
+      if (event.bucket !== bucket) return;
+      void refreshObjectsQuietly();
+    });
+  }, [bucket, refreshObjectsQuietly]);
+
+  useEffect(() => {
     setCreatingFolder(false);
     setNewFolderName('');
+    setRenamingName(null);
+    setRenameValue('');
   }, [bucket, prefix]);
 
+  function startRenameFolder(folderName: string) {
+    setCreatingFolder(false);
+    setRenamingName(folderName);
+    setRenameValue(folderName);
+    setError(null);
+  }
+
+  function cancelRenameFolder() {
+    setRenamingName(null);
+    setRenameValue('');
+  }
+
+  async function handleRenameFolder() {
+    if (!token || !bucket || !canWrite || !renamingName) return;
+    const nextName = renameValue.trim();
+    if (!isValidFolderName(nextName)) {
+      setError(t('invalidFolderName'));
+      return;
+    }
+    if (nextName === renamingName) {
+      cancelRenameFolder();
+      return;
+    }
+    const conflict = items.some(
+      (item) =>
+        item.id == null &&
+        item.name !== renamingName &&
+        item.name.toLowerCase() === nextName.toLowerCase(),
+    );
+    if (conflict) {
+      setError(t('folderExists', { name: nextName }));
+      return;
+    }
+
+    const fromPath = joinPath(prefix, renamingName);
+    const toPath = joinPath(prefix, nextName);
+    setBusyName(fromPath);
+    setError(null);
+    try {
+      await renameFolder(token, bucket, fromPath, toPath);
+      cancelRenameFolder();
+      await loadObjects();
+    } catch (err) {
+      handleApiError(err);
+    } finally {
+      setBusyName(null);
+    }
+  }
+
   async function handleCreateFolder() {
-    if (!token || !bucket) return;
+    if (!token || !bucket || !canWrite) return;
     const name = newFolderName.trim();
     if (!isValidFolderName(name)) {
       setError(t('invalidFolderName'));
@@ -168,19 +289,14 @@ export function FileManager() {
       setNewFolderName('');
       setPrefix(folderPath);
     } catch (err) {
-      if (isStorageAuthError(err)) {
-        clearSessionData();
-        setError(t('sessionExpired'));
-      } else {
-        setError(err instanceof Error ? err.message : t('error'));
-      }
+      handleApiError(err);
     } finally {
       setBusyName(null);
     }
   }
 
   async function handleUpload(files: FileList | null) {
-    if (!token || !bucket || !files?.length) return;
+    if (!token || !bucket || !canWrite || !files?.length) return;
     setError(null);
     for (const file of Array.from(files)) {
       const path = joinPath(prefix, file.name);
@@ -188,12 +304,7 @@ export function FileManager() {
       try {
         await uploadObject(token, bucket, path, file);
       } catch (err) {
-        if (isStorageAuthError(err)) {
-          clearSessionData();
-          setError(t('sessionExpired'));
-        } else {
-          setError(err instanceof Error ? err.message : t('error'));
-        }
+        handleApiError(err);
         break;
       }
     }
@@ -224,10 +335,7 @@ export function FileManager() {
     item: StorageListItem,
     fileCount: number,
   ): Promise<boolean> {
-    const description =
-      fileCount === 0
-        ? t('deleteFolderConfirmEmpty', { name: item.name })
-        : t('deleteFolderConfirm', { name: item.name, count: fileCount });
+    const description = t('deleteFolderConfirm', { name: item.name, count: fileCount });
     if (typeof window === 'undefined' || window.parent === window) {
       return window.confirm(description);
     }
@@ -246,7 +354,7 @@ export function FileManager() {
   }
 
   async function handleDelete(item: StorageListItem) {
-    if (!token || !bucket) return;
+    if (!token || !bucket || !canWrite) return;
     const path = joinPath(prefix, item.name);
     const isFolder = item.id == null;
 
@@ -255,19 +363,17 @@ export function FileManager() {
       setError(null);
       try {
         const stats = await getFolderStats(token, bucket, path);
-        setBusyName(null);
-        const confirmed = await confirmDeleteFolder(item, stats.file_count);
-        if (!confirmed) return;
-        setBusyName(path);
+        // Empty folders (placeholder only) delete immediately; content needs confirm.
+        if (stats.file_count > 0) {
+          setBusyName(null);
+          const confirmed = await confirmDeleteFolder(item, stats.file_count);
+          if (!confirmed) return;
+          setBusyName(path);
+        }
         await deleteFolder(token, bucket, path);
         await loadObjects();
       } catch (err) {
-        if (isStorageAuthError(err)) {
-          clearSessionData();
-          setError(t('sessionExpired'));
-        } else {
-          setError(err instanceof Error ? err.message : t('error'));
-        }
+        handleApiError(err);
       } finally {
         setBusyName(null);
       }
@@ -282,12 +388,7 @@ export function FileManager() {
       await deleteObject(token, bucket, path);
       await loadObjects();
     } catch (err) {
-      if (isStorageAuthError(err)) {
-        clearSessionData();
-        setError(t('sessionExpired'));
-      } else {
-        setError(err instanceof Error ? err.message : t('error'));
-      }
+      handleApiError(err);
     } finally {
       setBusyName(null);
     }
@@ -310,12 +411,7 @@ export function FileManager() {
       a.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
-      if (isStorageAuthError(err)) {
-        clearSessionData();
-        setError(t('sessionExpired'));
-      } else {
-        setError(err instanceof Error ? err.message : t('error'));
-      }
+      handleApiError(err);
     } finally {
       setBusyName(null);
     }
@@ -329,12 +425,35 @@ export function FileManager() {
     if (item.id == null || !bucket) return;
     const path = joinPath(prefix, item.name);
     const url = buildViewerModalUrl(bucket, path);
-    if (typeof window !== 'undefined' && window.parent !== window) {
-      shellui.openModal(url, { size: 'xl' });
-      return;
-    }
-    // Standalone / top-level fallback: open viewer hash in the same window.
-    window.location.hash = `#/viewer?${new URLSearchParams({ bucket, path }).toString()}`;
+    openShelluiOrHash(
+      url,
+      `#/viewer?${new URLSearchParams({ bucket, path }).toString()}`,
+    );
+  }
+
+  function openPermissions(item: StorageListItem) {
+    if (!bucket || !grantsEnabled) return;
+    const path = joinPath(prefix, item.name);
+    const resourceType = item.id == null ? 'folder' : 'object';
+    const url = buildPermissionsModalUrl(bucket, path, resourceType);
+    openShelluiOrHash(
+      url,
+      `#/permissions?${new URLSearchParams({
+        bucket,
+        path,
+        type: resourceType,
+      }).toString()}`,
+    );
+  }
+
+  function openShare(item: StorageListItem) {
+    if (!bucket || item.id == null || !shareable) return;
+    const path = joinPath(prefix, item.name);
+    const url = buildShareModalUrl(bucket, path);
+    openShelluiOrHash(
+      url,
+      `#/share?${new URLSearchParams({ bucket, path }).toString()}`,
+    );
   }
 
   if (!token) {
@@ -370,7 +489,8 @@ export function FileManager() {
             type="button"
             className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-50"
             onClick={() => setCreatingFolder((v) => !v)}
-            disabled={!bucket}
+            disabled={!bucket || !canWrite}
+            title={!canWrite ? t('readOnlyLocation') : undefined}
           >
             <FolderPlus className="h-3.5 w-3.5" />
             {t('createFolder')}
@@ -379,7 +499,8 @@ export function FileManager() {
             type="button"
             className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50"
             onClick={() => fileInputRef.current?.click()}
-            disabled={!bucket}
+            disabled={!bucket || !canWrite}
+            title={!canWrite ? t('readOnlyLocation') : undefined}
           >
             <Upload className="h-3.5 w-3.5" />
             {t('upload')}
@@ -434,14 +555,18 @@ export function FileManager() {
         </div>
       ) : null}
 
+      {!canWrite && bucket ? (
+        <div className="border-b border-border bg-muted/40 px-4 py-2 text-xs text-muted-foreground">
+          {t('readOnlyLocation')}
+        </div>
+      ) : null}
+
       <div className="flex min-h-0 flex-1">
-        <aside className="w-52 shrink-0 border-r border-border bg-card/40 p-3">
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t('buckets')}
-          </div>
-          {buckets.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('emptyBuckets')}</p>
-          ) : (
+        {showLocations ? (
+          <aside className="w-52 shrink-0 border-r border-border bg-card/40 p-3">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t('locations')}
+            </div>
             <ul className="space-y-1">
               {buckets.map((b) => (
                 <li key={b.name}>
@@ -465,8 +590,8 @@ export function FileManager() {
                 </li>
               ))}
             </ul>
-          )}
-        </aside>
+          </aside>
+        ) : null}
 
         <main className="flex min-w-0 flex-1 flex-col">
           <nav
@@ -541,29 +666,58 @@ export function FileManager() {
                         className="border-b border-border/70"
                       >
                         <td className="px-3 py-2">
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-2 hover:underline"
-                            onClick={() => {
-                              if (isFolder) openFolder(item.name);
-                              else openViewer(item);
-                            }}
-                          >
-                            {isFolder ? (
-                              <Folder className="h-4 w-4 text-primary" />
-                            ) : (
-                              <FileIcon className="h-4 w-4 text-muted-foreground" />
-                            )}
-                            {item.name}
-                          </button>
+                          {isFolder && renamingName === item.name ? (
+                            <div className="flex min-w-[12rem] flex-wrap items-center gap-2">
+                              <Folder className="h-4 w-4 shrink-0 text-primary" />
+                              <input
+                                className="min-w-[8rem] flex-1 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                value={renameValue}
+                                onChange={(e) => setRenameValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') void handleRenameFolder();
+                                  if (e.key === 'Escape') cancelRenameFolder();
+                                }}
+                                autoFocus
+                                disabled={busy}
+                              />
+                              <button
+                                type="button"
+                                className="rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground disabled:opacity-50"
+                                onClick={() => void handleRenameFolder()}
+                                disabled={busy}
+                              >
+                                {t('renameSave')}
+                              </button>
+                              <button
+                                type="button"
+                                className="rounded-md border border-border px-2 py-1 text-xs"
+                                onClick={cancelRenameFolder}
+                                disabled={busy}
+                              >
+                                {t('cancel')}
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-2 hover:underline"
+                              onClick={() => {
+                                if (isFolder) openFolder(item.name);
+                                else openViewer(item);
+                              }}
+                            >
+                              {isFolder ? (
+                                <Folder className="h-4 w-4 text-primary" />
+                              ) : (
+                                <FileIcon className="h-4 w-4 text-muted-foreground" />
+                              )}
+                              {item.name}
+                            </button>
+                          )}
                         </td>
                         <td className="px-3 py-2 text-muted-foreground">
                           <span title={item.access?.description || selectedBucket?.access?.description}>
-                            {t(
-                              accessLabelKey(
-                                item.access?.audience || selectedBucket?.access?.audience,
-                              ),
-                            )}
+                            {accessRowLabel(item.access, selectedBucket?.access?.audience, t)}
                           </span>
                         </td>
                         <td className="px-3 py-2 text-muted-foreground">
@@ -580,38 +734,40 @@ export function FileManager() {
                               : '—'}
                         </td>
                         <td className="px-3 py-2">
-                          {!isFolder ? (
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                className="rounded p-1.5 hover:bg-muted disabled:opacity-50"
-                                title={t('view')}
-                                onClick={() => openViewer(item)}
-                                disabled={busy}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </button>
-                              <button
-                                type="button"
-                                className="rounded p-1.5 hover:bg-muted disabled:opacity-50"
-                                title={t('download')}
-                                onClick={() => void handleDownload(item)}
-                                disabled={busy}
-                              >
-                                <Download className="h-4 w-4" />
-                              </button>
-                              <button
-                                type="button"
-                                className="rounded p-1.5 text-destructive hover:bg-muted disabled:opacity-50"
-                                title={t('delete')}
-                                onClick={() => void handleDelete(item)}
-                                disabled={busy}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1">
+                            {!isFolder ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="rounded p-1.5 hover:bg-muted disabled:opacity-50"
+                                  title={t('view')}
+                                  onClick={() => openViewer(item)}
+                                  disabled={busy}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="rounded p-1.5 hover:bg-muted disabled:opacity-50"
+                                  title={t('download')}
+                                  onClick={() => void handleDownload(item)}
+                                  disabled={busy}
+                                >
+                                  <Download className="h-4 w-4" />
+                                </button>
+                                {shareable ? (
+                                  <button
+                                    type="button"
+                                    className="rounded p-1.5 hover:bg-muted disabled:opacity-50"
+                                    title={t('share')}
+                                    onClick={() => openShare(item)}
+                                    disabled={busy}
+                                  >
+                                    <Link2 className="h-4 w-4" />
+                                  </button>
+                                ) : null}
+                              </>
+                            ) : (
                               <button
                                 type="button"
                                 className="rounded px-2 py-1 text-xs hover:bg-muted"
@@ -619,17 +775,41 @@ export function FileManager() {
                               >
                                 {t('open')}
                               </button>
+                            )}
+                            {isFolder && canWrite ? (
+                              <button
+                                type="button"
+                                className="rounded p-1.5 hover:bg-muted disabled:opacity-50"
+                                title={t('renameFolder')}
+                                onClick={() => startRenameFolder(item.name)}
+                                disabled={busy || renamingName === item.name}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                            ) : null}
+                            {grantsEnabled ? (
+                              <button
+                                type="button"
+                                className="rounded p-1.5 hover:bg-muted disabled:opacity-50"
+                                title={t('permissions')}
+                                onClick={() => openPermissions(item)}
+                                disabled={busy}
+                              >
+                                <Shield className="h-4 w-4" />
+                              </button>
+                            ) : null}
+                            {canWrite ? (
                               <button
                                 type="button"
                                 className="rounded p-1.5 text-destructive hover:bg-muted disabled:opacity-50"
-                                title={t('deleteFolder')}
+                                title={isFolder ? t('deleteFolder') : t('delete')}
                                 onClick={() => void handleDelete(item)}
                                 disabled={busy}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>
-                            </div>
-                          )}
+                            ) : null}
+                          </div>
                         </td>
                       </tr>
                     );

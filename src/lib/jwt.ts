@@ -20,6 +20,45 @@ export function getJwtExpiryUnix(token: string): number | null {
   return typeof exp === 'number' && Number.isFinite(exp) ? exp : null;
 }
 
+export type JwtSessionClaims = {
+  userId: number | null;
+  companyId: number | null;
+  isCompanyOwner: boolean;
+  isStaff: boolean;
+};
+
+/** Best-effort claims from the access JWT (UX only — server enforces auth). */
+export function getJwtSessionClaims(token: string): JwtSessionClaims {
+  const payload = decodeJwtPayload(token);
+  if (!payload) {
+    return { userId: null, companyId: null, isCompanyOwner: false, isStaff: false };
+  }
+  const meta =
+    payload.user_metadata && typeof payload.user_metadata === 'object'
+      ? (payload.user_metadata as Record<string, unknown>)
+      : {};
+  const rawUser = payload.user_id ?? payload.sub;
+  const userId =
+    typeof rawUser === 'number'
+      ? rawUser
+      : typeof rawUser === 'string' && /^\d+$/.test(rawUser)
+        ? Number(rawUser)
+        : null;
+  const rawCompany = payload.company_id;
+  const companyId =
+    typeof rawCompany === 'number'
+      ? rawCompany
+      : typeof rawCompany === 'string' && /^\d+$/.test(rawCompany)
+        ? Number(rawCompany)
+        : null;
+  return {
+    userId,
+    companyId,
+    isCompanyOwner: Boolean(meta.is_company_owner),
+    isStaff: Boolean(meta.is_staff),
+  };
+}
+
 /**
  * Whether the JWT is past its `exp` claim.
  * Uses a small clock-skew leeway so we treat near-expiry as expired for UX.
