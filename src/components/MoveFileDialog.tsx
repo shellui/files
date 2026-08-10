@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronRight, Folder, FolderInput, Loader2, X } from 'lucide-react';
+import { isInvalidMoveDestination } from '@/lib/dnd';
 import { joinPath } from '@/lib/format';
 import { notifyFilesListChanged } from '@/lib/filesEvents';
 import { fileNameFromPath } from '@/lib/modalRoutes';
@@ -8,21 +9,26 @@ import {
   isStorageAccessDenied,
   isStorageAuthError,
   listObjects,
+  renameFolder,
   renameObject,
   type StorageListItem,
 } from '@/lib/storageApi';
 
-export type MoveFileTarget = {
+export type MoveItemTarget = {
   bucket: string;
   path: string;
   name: string;
-  /** Parent folder prefix of the file ('' = root). */
+  /** Parent folder prefix of the item ('' = root). */
   parentPrefix: string;
+  resourceType: 'folder' | 'object';
 };
+
+/** @deprecated Use MoveItemTarget */
+export type MoveFileTarget = MoveItemTarget;
 
 type MoveFileDialogProps = {
   token: string;
-  target: MoveFileTarget;
+  target: MoveItemTarget;
   rootLabel: string;
   onClose: () => void;
   onAuthError: () => void;
@@ -36,12 +42,17 @@ export function parentPrefixFromPath(path: string): string {
   return parts.slice(0, -1).join('/');
 }
 
-export function moveTargetFromPath(bucket: string, path: string): MoveFileTarget {
+export function moveTargetFromPath(
+  bucket: string,
+  path: string,
+  resourceType: 'folder' | 'object' = 'object',
+): MoveItemTarget {
   return {
     bucket,
     path,
     name: fileNameFromPath(path),
     parentPrefix: parentPrefixFromPath(path),
+    resourceType,
   };
 }
 
@@ -54,6 +65,7 @@ export function MoveFileDialog({
   variant = 'overlay',
 }: MoveFileDialogProps) {
   const { t } = useTranslation();
+  const isFolder = target.resourceType === 'folder';
   const [browsePrefix, setBrowsePrefix] = useState(target.parentPrefix);
   const [folders, setFolders] = useState<StorageListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,6 +84,12 @@ export function MoveFileDialog({
   }, [browsePrefix, rootLabel]);
 
   const sameLocation = browsePrefix === target.parentPrefix;
+  const invalidDest = isInvalidMoveDestination(
+    target.path,
+    isFolder ? 'folder' : 'file',
+    browsePrefix,
+  );
+  const canMoveHere = !sameLocation && !invalidDest;
   const destinationPath = joinPath(browsePrefix, target.name);
 
   const loadFolders = useCallback(async () => {
@@ -79,7 +97,14 @@ export function MoveFileDialog({
     setError(null);
     try {
       const entries = await listObjects(token, target.bucket, browsePrefix);
-      setFolders(entries.filter((item) => item.id == null));
+      setFolders(
+        entries.filter((item) => {
+          if (item.id != null) return false;
+          const folderPath = joinPath(browsePrefix, item.name);
+          if (!isFolder) return true;
+          return !isInvalidMoveDestination(target.path, 'folder', folderPath);
+        }),
+      );
     } catch (err) {
       if (isStorageAuthError(err)) {
         onAuthError();
@@ -94,29 +119,35 @@ export function MoveFileDialog({
     } finally {
       setLoading(false);
     }
-  }, [token, target.bucket, browsePrefix, onAuthError, t]);
+  }, [token, target.bucket, target.path, browsePrefix, isFolder, onAuthError, t]);
 
   useEffect(() => {
     void loadFolders();
   }, [loadFolders]);
 
   async function handleMove() {
-    if (sameLocation || busy) return;
+    if (!canMoveHere || busy) return;
     setBusy(true);
     setError(null);
     try {
       const destEntries = await listObjects(token, target.bucket, browsePrefix);
       const conflict = destEntries.some(
         (item) =>
-          item.id != null &&
+          (item.id == null) === isFolder &&
           item.name.toLowerCase() === target.name.toLowerCase(),
       );
       if (conflict) {
-        setError(t('fileExists', { name: target.name }));
+        setError(
+          t(isFolder ? 'folderExists' : 'fileExists', { name: target.name }),
+        );
         setBusy(false);
         return;
       }
-      await renameObject(token, target.bucket, target.path, destinationPath);
+      if (isFolder) {
+        await renameFolder(token, target.bucket, target.path, destinationPath);
+      } else {
+        await renameObject(token, target.bucket, target.path, destinationPath);
+      }
       notifyFilesListChanged({
         reason: 'move',
         bucket: target.bucket,
@@ -155,10 +186,12 @@ export function MoveFileDialog({
         <FolderInput className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden />
         <div className="min-w-0 flex-1">
           <h2 id="move-file-title" className="font-heading text-base font-semibold">
-            {t('moveFileTitle')}
+            {t(isFolder ? 'moveFolderTitle' : 'moveFileTitle')}
           </h2>
           <p className="truncate text-sm text-muted-foreground">
-            {t('moveFileSubtitle', { name: target.name })}
+            {t(isFolder ? 'moveFolderSubtitle' : 'moveFileSubtitle', {
+              name: target.name,
+            })}
           </p>
         </div>
         {!embedded ? (
@@ -185,31 +218,40 @@ export function MoveFileDialog({
           className="flex flex-wrap items-center gap-0.5 text-sm"
           aria-label={t('breadcrumb')}
         >
-          {crumbs.map((crumb, index) => (
-            <span key={crumb.path || 'root'} className="inline-flex items-center gap-0.5">
-              {index > 0 ? (
-                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-              ) : null}
-              <button
-                type="button"
-                className={`rounded px-1.5 py-0.5 hover:bg-muted ${
-                  index === crumbs.length - 1 ? 'font-medium' : 'text-muted-foreground'
-                }`}
-                onClick={() => setBrowsePrefix(crumb.path)}
-                disabled={busy || loading}
-              >
-                {crumb.label}
-              </button>
-            </span>
-          ))}
+          {crumbs.map((crumb, index) => {
+            const crumbInvalid = isInvalidMoveDestination(
+              target.path,
+              isFolder ? 'folder' : 'file',
+              crumb.path,
+            );
+            return (
+              <span key={crumb.path || 'root'} className="inline-flex items-center gap-0.5">
+                {index > 0 ? (
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                ) : null}
+                <button
+                  type="button"
+                  className={`rounded px-1.5 py-0.5 hover:bg-muted ${
+                    index === crumbs.length - 1 ? 'font-medium' : 'text-muted-foreground'
+                  }`}
+                  onClick={() => setBrowsePrefix(crumb.path)}
+                  disabled={busy || loading || crumbInvalid}
+                >
+                  {crumb.label}
+                </button>
+              </span>
+            );
+          })}
         </nav>
 
         <p className="text-xs text-muted-foreground">
-          {sameLocation
-            ? t('moveFileSameLocation')
-            : t('moveFileDestination', {
-                path: browsePrefix ? `/${browsePrefix}` : '/',
-              })}
+          {invalidDest
+            ? t('moveFolderIntoSelf')
+            : sameLocation
+              ? t('moveFileSameLocation')
+              : t('moveFileDestination', {
+                  path: browsePrefix ? `/${browsePrefix}` : '/',
+                })}
         </p>
 
         <div className="min-h-[12rem] flex-1 overflow-auto rounded-md border border-border">
@@ -254,7 +296,7 @@ export function MoveFileDialog({
           type="button"
           className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50"
           onClick={() => void handleMove()}
-          disabled={busy || loading || sameLocation}
+          disabled={busy || loading || !canMoveHere}
         >
           {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
           {t('moveFileSave')}

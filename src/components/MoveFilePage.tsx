@@ -19,7 +19,7 @@ export function MoveFilePage() {
 
   const target = useMemo(() => {
     if (!route) return null;
-    return moveTargetFromPath(route.bucket, route.path);
+    return moveTargetFromPath(route.bucket, route.path, route.resourceType);
   }, [route]);
 
   const handleClose = useCallback(() => {

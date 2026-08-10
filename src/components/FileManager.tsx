@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import shellui from '@shellui/sdk';
 import {
@@ -20,6 +20,15 @@ import {
 } from 'lucide-react';
 import { useShelluiAccessSession } from '@/hooks/useShelluiAccessToken';
 import { ItemActions, type ItemAction } from '@/components/ItemActions';
+import {
+  DND_FILE_MIME,
+  canMoveToPrefix,
+  dropTargetKey,
+  isAcceptableDrop,
+  isInternalFileDrag,
+  readDragItemPayload,
+  type DragItemPayload,
+} from '@/lib/dnd';
 import { subscribeFilesListChanged } from '@/lib/filesEvents';
 import { formatBytes, isValidFileName, isValidFolderName, joinPath } from '@/lib/format';
 import {
@@ -46,6 +55,8 @@ import {
   uploadObject,
 } from '@/lib/storageApi';
 import { buildViewerModalUrl } from '@/lib/viewerRoute';
+
+const dropHighlightClass = 'bg-primary/10 ring-1 ring-inset ring-primary/35';
 
 function accessLabelKey(audience: string | undefined): string {
   if (audience === 'company') return 'accessCompany';
@@ -92,6 +103,8 @@ export function FileManager() {
   const [renamingIsFolder, setRenamingIsFolder] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [busyName, setBusyName] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [draggingItem, setDraggingItem] = useState<DragItemPayload | null>(null);
 
   const selectedBucket = useMemo(
     () => buckets.find((b) => b.name === bucket) ?? null,
@@ -223,6 +236,8 @@ export function FileManager() {
     setRenamingName(null);
     setRenamingIsFolder(false);
     setRenameValue('');
+    setDropTarget(null);
+    setDraggingItem(null);
   }, [bucket, prefix]);
 
   function startRename(itemName: string, isFolder: boolean) {
@@ -316,10 +331,20 @@ export function FileManager() {
   }
 
   async function handleUpload(files: FileList | null) {
-    if (!token || !bucket || !canWrite || !files?.length) return;
+    await handleUploadToPrefix(files, prefix);
+  }
+
+  async function handleUploadToPrefix(
+    files: FileList | File[] | null,
+    destPrefix: string,
+  ) {
+    if (!token || !bucket || !canWrite || !files || (Array.isArray(files) ? !files.length : !files.length)) {
+      return;
+    }
+    const list = Array.isArray(files) ? files : Array.from(files);
     setError(null);
-    for (const file of Array.from(files)) {
-      const path = joinPath(prefix, file.name);
+    for (const file of list) {
+      const path = joinPath(destPrefix, file.name);
       setBusyName(path);
       try {
         await uploadObject(token, bucket, path, file);
@@ -331,6 +356,126 @@ export function FileManager() {
     setBusyName(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
     await loadObjects();
+  }
+
+  async function moveItemToPrefix(payload: DragItemPayload, destPrefix: string) {
+    if (!token || !bucket || !canWrite) return;
+    if (!canMoveToPrefix(payload, destPrefix)) return;
+    const toPath = joinPath(destPrefix, payload.name);
+    setBusyName(payload.path);
+    setError(null);
+    try {
+      const destEntries = await listObjects(token, bucket, destPrefix);
+      const movingFolder = payload.kind === 'folder';
+      const conflict = destEntries.some(
+        (item) =>
+          (item.id == null) === movingFolder &&
+          item.name.toLowerCase() === payload.name.toLowerCase(),
+      );
+      if (conflict) {
+        setError(
+          t(movingFolder ? 'folderExists' : 'fileExists', { name: payload.name }),
+        );
+        return;
+      }
+      if (movingFolder) {
+        await renameFolder(token, bucket, payload.path, toPath);
+      } else {
+        await renameObject(token, bucket, payload.path, toPath);
+      }
+      await loadObjects();
+    } catch (err) {
+      handleApiError(err);
+    } finally {
+      setBusyName(null);
+    }
+  }
+
+  function clearDropState() {
+    setDropTarget(null);
+  }
+
+  function isValidDestForDrag(destPrefix: string): boolean {
+    if (!canWrite) return false;
+    if (draggingItem) return canMoveToPrefix(draggingItem, destPrefix);
+    return true;
+  }
+
+  function allowDrop(e: DragEvent, destPrefix: string) {
+    if (!isAcceptableDrop(e.dataTransfer, canWrite)) return false;
+    if (isInternalFileDrag(e.dataTransfer) && !isValidDestForDrag(destPrefix)) {
+      return false;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = isInternalFileDrag(e.dataTransfer) ? 'move' : 'copy';
+    return true;
+  }
+
+  function onDropTargetOver(e: DragEvent, key: string, destPrefix: string) {
+    if (!allowDrop(e, destPrefix)) return;
+    setDropTarget(key);
+  }
+
+  function onDropTargetLeave(e: DragEvent, key: string) {
+    const related = e.relatedTarget as Node | null;
+    if (related && e.currentTarget.contains(related)) return;
+    setDropTarget((current) => (current === key ? null : current));
+  }
+
+  async function handleDropOnPrefix(e: DragEvent, destPrefix: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    clearDropState();
+    if (!canWrite || !token || !bucket) return;
+
+    const payload = readDragItemPayload(e.dataTransfer);
+    if (payload) {
+      await moveItemToPrefix(payload, destPrefix);
+      return;
+    }
+    if (e.dataTransfer.files?.length) {
+      await handleUploadToPrefix(e.dataTransfer.files, destPrefix);
+    }
+  }
+
+  function onItemDragStart(e: DragEvent, item: StorageListItem) {
+    if (!canWrite || renamingName === item.name) {
+      e.preventDefault();
+      return;
+    }
+    const isFolder = item.id == null;
+    const payload: DragItemPayload = {
+      path: joinPath(prefix, item.name),
+      name: item.name,
+      parentPrefix: prefix,
+      kind: isFolder ? 'folder' : 'file',
+    };
+    e.dataTransfer.setData(DND_FILE_MIME, JSON.stringify(payload));
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggingItem(payload);
+  }
+
+  function onItemDragEnd() {
+    setDraggingItem(null);
+    clearDropState();
+  }
+
+  function onListDragOver(e: DragEvent) {
+    if (!allowDrop(e, prefix)) return;
+    setDropTarget(dropTargetKey('current', prefix));
+  }
+
+  function onListDragLeave(e: DragEvent) {
+    const related = e.relatedTarget as Node | null;
+    if (related && e.currentTarget.contains(related)) return;
+    setDropTarget((current) =>
+      current === dropTargetKey('current', prefix) ? null : current,
+    );
+  }
+
+  async function onListDrop(e: DragEvent) {
+    await handleDropOnPrefix(e, prefix);
   }
 
   async function confirmDeleteFile(item: StorageListItem): Promise<boolean> {
@@ -477,12 +622,17 @@ export function FileManager() {
   }
 
   function openMove(item: StorageListItem) {
-    if (!bucket || !canWrite || item.id == null) return;
+    if (!bucket || !canWrite) return;
     const path = joinPath(prefix, item.name);
-    const url = buildMoveModalUrl(bucket, path);
+    const resourceType = item.id == null ? 'folder' : 'object';
+    const url = buildMoveModalUrl(bucket, path, resourceType);
     openShelluiOrHash(
       url,
-      `#/move?${new URLSearchParams({ bucket, path }).toString()}`,
+      `#/move?${new URLSearchParams({
+        bucket,
+        path,
+        type: resourceType,
+      }).toString()}`,
     );
   }
 
@@ -628,31 +778,51 @@ export function FileManager() {
             className="flex flex-wrap items-center gap-1 border-b border-border px-4 py-2 text-sm"
             aria-label={t('breadcrumb')}
           >
-            {crumbs.map((crumb, index) => (
-              <span
-                key={crumb.path || 'root'}
-                className="inline-flex items-center gap-1"
-              >
-                {index > 0 ? (
-                  <ChevronRight
-                    className="h-3.5 w-3.5 text-muted-foreground"
-                    aria-hidden
-                  />
-                ) : (
-                  <Folder className="mr-0.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                )}
-                <button
-                  type="button"
-                  className={`rounded px-1.5 py-0.5 hover:bg-muted ${
-                    index === crumbs.length - 1 ? 'font-medium' : 'text-muted-foreground'
-                  }`}
-                  onClick={() => setPrefix(crumb.path)}
-                  aria-current={index === crumbs.length - 1 ? 'location' : undefined}
+            {crumbs.map((crumb, index) => {
+              const crumbKey = dropTargetKey('crumb', crumb.path);
+              const crumbActive = dropTarget === crumbKey;
+              const crumbAccepts =
+                canWrite &&
+                (!draggingItem || canMoveToPrefix(draggingItem, crumb.path));
+              return (
+                <span
+                  key={crumb.path || 'root'}
+                  className="inline-flex items-center gap-1"
                 >
-                  {crumb.label}
-                </button>
-              </span>
-            ))}
+                  {index > 0 ? (
+                    <ChevronRight
+                      className="h-3.5 w-3.5 text-muted-foreground"
+                      aria-hidden
+                    />
+                  ) : (
+                    <Folder className="mr-0.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                  )}
+                  <button
+                    type="button"
+                    className={`rounded px-1.5 py-0.5 hover:bg-muted ${
+                      index === crumbs.length - 1 ? 'font-medium' : 'text-muted-foreground'
+                    } ${crumbActive ? dropHighlightClass : ''}`}
+                    onClick={() => setPrefix(crumb.path)}
+                    aria-current={index === crumbs.length - 1 ? 'location' : undefined}
+                    onDragOver={
+                      crumbAccepts
+                        ? (e) => onDropTargetOver(e, crumbKey, crumb.path)
+                        : undefined
+                    }
+                    onDragLeave={
+                      crumbAccepts ? (e) => onDropTargetLeave(e, crumbKey) : undefined
+                    }
+                    onDrop={
+                      crumbAccepts
+                        ? (e) => void handleDropOnPrefix(e, crumb.path)
+                        : undefined
+                    }
+                  >
+                    {crumb.label}
+                  </button>
+                </span>
+              );
+            })}
             {selectedBucket?.access ? (
               <span
                 className="ml-auto rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground"
@@ -663,7 +833,14 @@ export function FileManager() {
             ) : null}
           </nav>
 
-          <div className="min-h-0 flex-1 overflow-auto p-2">
+          <div
+            className={`relative min-h-0 flex-1 overflow-auto p-2 transition-colors ${
+              dropTarget === dropTargetKey('current', prefix) ? dropHighlightClass : ''
+            }`}
+            onDragOver={canWrite ? onListDragOver : undefined}
+            onDragLeave={canWrite ? onListDragLeave : undefined}
+            onDrop={canWrite ? (e) => void onListDrop(e) : undefined}
+          >
             {loading ? (
               <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -672,7 +849,13 @@ export function FileManager() {
             ) : !bucket ? (
               <p className="p-4 text-sm text-muted-foreground">{t('emptyBuckets')}</p>
             ) : items.length === 0 ? (
-              <p className="p-4 text-sm text-muted-foreground">{t('emptyBucket')}</p>
+              <div className="flex min-h-[12rem] flex-col items-center justify-center gap-2 p-6 text-center">
+                <Upload className="h-8 w-8 text-muted-foreground/70" aria-hidden />
+                <p className="text-sm text-muted-foreground">{t('emptyBucket')}</p>
+                {canWrite ? (
+                  <p className="text-xs text-muted-foreground">{t('dropUploadHint')}</p>
+                ) : null}
+              </div>
             ) : (
               <table className="w-full text-left text-sm">
                 <thead className="text-xs uppercase text-muted-foreground">
@@ -710,6 +893,14 @@ export function FileManager() {
                         icon: <FolderOpen className="h-4 w-4" />,
                         onClick: () => openFolder(item.name),
                       });
+                      if (canWrite) {
+                        actions.push({
+                          key: 'move',
+                          label: t('moveFolder'),
+                          icon: <FolderInput className="h-4 w-4" />,
+                          onClick: () => openMove(item),
+                        });
+                      }
                     } else {
                       actions.push({
                         key: 'view',
@@ -769,7 +960,50 @@ export function FileManager() {
                     return (
                       <tr
                         key={`${isFolder ? 'dir' : 'file'}:${item.name}`}
-                        className="border-b border-border/70"
+                        className={`border-b border-border/70 ${
+                          isFolder &&
+                          dropTarget === dropTargetKey('folder', path) &&
+                          draggingItem?.path !== path
+                            ? dropHighlightClass
+                            : ''
+                        } ${
+                          draggingItem?.path === path ? 'opacity-50' : ''
+                        } ${
+                          canWrite && !renaming
+                            ? 'cursor-grab active:cursor-grabbing'
+                            : ''
+                        }`}
+                        draggable={canWrite && !renaming}
+                        onDragStart={
+                          canWrite ? (e) => onItemDragStart(e, item) : undefined
+                        }
+                        onDragEnd={canWrite ? onItemDragEnd : undefined}
+                        onDragOver={
+                          canWrite && isFolder
+                            ? (e) => {
+                                e.stopPropagation();
+                                onDropTargetOver(
+                                  e,
+                                  dropTargetKey('folder', path),
+                                  path,
+                                );
+                              }
+                            : undefined
+                        }
+                        onDragLeave={
+                          canWrite && isFolder
+                            ? (e) =>
+                                onDropTargetLeave(e, dropTargetKey('folder', path))
+                            : undefined
+                        }
+                        onDrop={
+                          canWrite && isFolder
+                            ? (e) => {
+                                e.stopPropagation();
+                                void handleDropOnPrefix(e, path);
+                              }
+                            : undefined
+                        }
                       >
                         <td className="max-w-0 w-full px-3 py-2">
                           {renaming ? (

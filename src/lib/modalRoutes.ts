@@ -82,6 +82,7 @@ export function buildShareModalUrl(bucket: string, path: string): string {
 export type MoveRoute = {
   bucket: string;
   path: string;
+  resourceType: 'folder' | 'object';
 };
 
 export function parseMoveHash(hash = window.location.hash): MoveRoute | null {
@@ -90,16 +91,25 @@ export function parseMoveHash(hash = window.location.hash): MoveRoute | null {
   const params = new URLSearchParams(search);
   const bucket = params.get('bucket')?.trim() || '';
   const objectPath = params.get('path')?.trim() || '';
+  const resourceType = params.get('type') === 'folder' ? 'folder' : 'object';
   if (!bucket || !objectPath) return null;
-  return { bucket, path: objectPath };
+  return { bucket, path: objectPath, resourceType };
 }
 
 export function isMoveHash(hash = window.location.hash): boolean {
   return parseHashPath(hash).path === '/move';
 }
 
-export function buildMoveModalUrl(bucket: string, path: string): string {
-  const params = new URLSearchParams({ bucket, path });
+export function buildMoveModalUrl(
+  bucket: string,
+  path: string,
+  resourceType: 'folder' | 'object' = 'object',
+): string {
+  const params = new URLSearchParams({
+    bucket,
+    path,
+    type: resourceType,
+  });
   return `${appBaseUrl()}/#/move?${params.toString()}`;
 }
 
