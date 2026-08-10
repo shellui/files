@@ -79,6 +79,30 @@ export function buildShareModalUrl(bucket: string, path: string): string {
   return `${appBaseUrl()}/#/share?${params.toString()}`;
 }
 
+export type MoveRoute = {
+  bucket: string;
+  path: string;
+};
+
+export function parseMoveHash(hash = window.location.hash): MoveRoute | null {
+  const { path, search } = parseHashPath(hash);
+  if (path !== '/move') return null;
+  const params = new URLSearchParams(search);
+  const bucket = params.get('bucket')?.trim() || '';
+  const objectPath = params.get('path')?.trim() || '';
+  if (!bucket || !objectPath) return null;
+  return { bucket, path: objectPath };
+}
+
+export function isMoveHash(hash = window.location.hash): boolean {
+  return parseHashPath(hash).path === '/move';
+}
+
+export function buildMoveModalUrl(bucket: string, path: string): string {
+  const params = new URLSearchParams({ bucket, path });
+  return `${appBaseUrl()}/#/move?${params.toString()}`;
+}
+
 /** Close the ShellUI modal, or clear the hash when running standalone. */
 export function closeAppModal(): void {
   if (typeof window === 'undefined') return;

@@ -4,7 +4,7 @@ const CHANNEL = 'shellui-files';
 
 export type FilesListChangedEvent = {
   type: 'list-changed';
-  reason: 'access' | 'share';
+  reason: 'access' | 'share' | 'move';
   bucket: string;
   path: string;
 };

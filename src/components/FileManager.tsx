@@ -7,6 +7,8 @@ import {
   Eye,
   File as FileIcon,
   Folder,
+  FolderInput,
+  FolderOpen,
   FolderPlus,
   Link2,
   Loader2,
@@ -17,9 +19,11 @@ import {
   Upload,
 } from 'lucide-react';
 import { useShelluiAccessSession } from '@/hooks/useShelluiAccessToken';
+import { ItemActions, type ItemAction } from '@/components/ItemActions';
 import { subscribeFilesListChanged } from '@/lib/filesEvents';
 import { formatBytes, isValidFileName, isValidFolderName, joinPath } from '@/lib/format';
 import {
+  buildMoveModalUrl,
   buildPermissionsModalUrl,
   buildShareModalUrl,
 } from '@/lib/modalRoutes';
@@ -207,7 +211,7 @@ export function FileManager() {
 
   useEffect(() => {
     return subscribeFilesListChanged((event) => {
-      if (event.reason !== 'access') return;
+      if (event.reason !== 'access' && event.reason !== 'move') return;
       if (event.bucket !== bucket) return;
       void refreshObjectsQuietly();
     });
@@ -472,6 +476,16 @@ export function FileManager() {
     );
   }
 
+  function openMove(item: StorageListItem) {
+    if (!bucket || !canWrite || item.id == null) return;
+    const path = joinPath(prefix, item.name);
+    const url = buildMoveModalUrl(bucket, path);
+    openShelluiOrHash(
+      url,
+      `#/move?${new URLSearchParams({ bucket, path }).toString()}`,
+    );
+  }
+
   if (!token) {
     return (
       <div
@@ -663,12 +677,22 @@ export function FileManager() {
               <table className="w-full text-left text-sm">
                 <thead className="text-xs uppercase text-muted-foreground">
                   <tr className="border-b border-border">
-                    <th className="px-3 py-2 font-medium">{t('name')}</th>
-                    <th className="px-3 py-2 font-medium">{t('access')}</th>
-                    <th className="px-3 py-2 font-medium">{t('type')}</th>
-                    <th className="px-3 py-2 font-medium">{t('size')}</th>
-                    <th className="px-3 py-2 font-medium">{t('modified')}</th>
-                    <th className="px-3 py-2 font-medium">{t('actions')}</th>
+                    <th className="w-full max-w-0 px-3 py-2 font-medium">{t('name')}</th>
+                    <th className="hidden whitespace-nowrap px-3 py-2 font-medium lg:table-cell">
+                      {t('access')}
+                    </th>
+                    <th className="hidden whitespace-nowrap px-3 py-2 font-medium xl:table-cell">
+                      {t('type')}
+                    </th>
+                    <th className="hidden whitespace-nowrap px-3 py-2 font-medium md:table-cell">
+                      {t('size')}
+                    </th>
+                    <th className="hidden whitespace-nowrap px-3 py-2 font-medium lg:table-cell">
+                      {t('modified')}
+                    </th>
+                    <th className="whitespace-nowrap px-2 py-2 text-right font-medium 2xl:px-3">
+                      <span className="sr-only 2xl:not-sr-only">{t('actions')}</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -676,21 +700,87 @@ export function FileManager() {
                     const isFolder = item.id == null;
                     const path = joinPath(prefix, item.name);
                     const busy = busyName === path;
+                    const renaming =
+                      renamingName === item.name && renamingIsFolder === isFolder;
+                    const actions: ItemAction[] = [];
+                    if (isFolder) {
+                      actions.push({
+                        key: 'open',
+                        label: t('open'),
+                        icon: <FolderOpen className="h-4 w-4" />,
+                        onClick: () => openFolder(item.name),
+                      });
+                    } else {
+                      actions.push({
+                        key: 'view',
+                        label: t('view'),
+                        icon: <Eye className="h-4 w-4" />,
+                        onClick: () => openViewer(item),
+                      });
+                      actions.push({
+                        key: 'download',
+                        label: t('download'),
+                        icon: <Download className="h-4 w-4" />,
+                        onClick: () => void handleDownload(item),
+                      });
+                      if (shareable) {
+                        actions.push({
+                          key: 'share',
+                          label: t('share'),
+                          icon: <Link2 className="h-4 w-4" />,
+                          onClick: () => openShare(item),
+                        });
+                      }
+                      if (canWrite) {
+                        actions.push({
+                          key: 'move',
+                          label: t('moveFile'),
+                          icon: <FolderInput className="h-4 w-4" />,
+                          onClick: () => openMove(item),
+                        });
+                      }
+                    }
+                    if (canWrite) {
+                      actions.push({
+                        key: 'rename',
+                        label: isFolder ? t('renameFolder') : t('renameFile'),
+                        icon: <Pencil className="h-4 w-4" />,
+                        onClick: () => startRename(item.name, isFolder),
+                        disabled: renaming,
+                      });
+                    }
+                    if (grantsEnabled) {
+                      actions.push({
+                        key: 'permissions',
+                        label: t('permissions'),
+                        icon: <Shield className="h-4 w-4" />,
+                        onClick: () => openPermissions(item),
+                      });
+                    }
+                    if (canWrite) {
+                      actions.push({
+                        key: 'delete',
+                        label: isFolder ? t('deleteFolder') : t('delete'),
+                        icon: <Trash2 className="h-4 w-4" />,
+                        onClick: () => void handleDelete(item),
+                        destructive: true,
+                      });
+                    }
                     return (
                       <tr
                         key={`${isFolder ? 'dir' : 'file'}:${item.name}`}
                         className="border-b border-border/70"
                       >
-                        <td className="px-3 py-2">
-                          {renamingName === item.name && renamingIsFolder === isFolder ? (
-                            <div className="flex min-w-[12rem] flex-wrap items-center gap-2">
+                        <td className="max-w-0 w-full px-3 py-2">
+                          {renaming ? (
+                            <div className="flex min-w-0 flex-wrap items-center gap-2">
                               {isFolder ? (
                                 <Folder className="h-4 w-4 shrink-0 text-primary" />
                               ) : (
                                 <FileIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
                               )}
                               <input
-                                className="min-w-[8rem] flex-1 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1 text-sm"
                                 value={renameValue}
                                 onChange={(e) => setRenameValue(e.target.value)}
                                 onKeyDown={(e) => {
@@ -720,119 +810,60 @@ export function FileManager() {
                           ) : (
                             <button
                               type="button"
-                              className="inline-flex items-center gap-2 hover:underline"
+                              className="flex w-full min-w-0 items-center gap-2 text-left hover:underline"
+                              title={item.name}
                               onClick={() => {
                                 if (isFolder) openFolder(item.name);
                                 else openViewer(item);
                               }}
                             >
                               {isFolder ? (
-                                <Folder className="h-4 w-4 text-primary" />
+                                <Folder className="h-4 w-4 shrink-0 text-primary" />
                               ) : (
-                                <FileIcon className="h-4 w-4 text-muted-foreground" />
+                                <FileIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
                               )}
-                              {item.name}
+                              <span className="truncate">{item.name}</span>
                             </button>
                           )}
                         </td>
-                        <td className="px-3 py-2 text-muted-foreground">
-                          <span title={item.access?.description || selectedBucket?.access?.description}>
-                            {accessRowLabel(item.access, selectedBucket?.access?.audience, t)}
+                        <td className="hidden whitespace-nowrap px-3 py-2 text-muted-foreground lg:table-cell">
+                          <span
+                            title={
+                              item.access?.description ||
+                              selectedBucket?.access?.description
+                            }
+                          >
+                            {accessRowLabel(
+                              item.access,
+                              selectedBucket?.access?.audience,
+                              t,
+                            )}
                           </span>
                         </td>
-                        <td className="px-3 py-2 text-muted-foreground">
-                          {isFolder ? t('folder') : item.metadata?.mimetype || t('file')}
+                        <td className="hidden max-w-[14rem] truncate px-3 py-2 text-muted-foreground xl:table-cell">
+                          <span
+                            className="block truncate"
+                            title={
+                              isFolder
+                                ? t('folder')
+                                : item.metadata?.mimetype || t('file')
+                            }
+                          >
+                            {isFolder ? t('folder') : item.metadata?.mimetype || t('file')}
+                          </span>
                         </td>
-                        <td className="px-3 py-2 text-muted-foreground">
+                        <td className="hidden whitespace-nowrap px-3 py-2 text-muted-foreground md:table-cell">
                           {isFolder ? '—' : formatBytes(item.metadata?.size)}
                         </td>
-                        <td className="px-3 py-2 text-muted-foreground">
+                        <td className="hidden whitespace-nowrap px-3 py-2 text-muted-foreground lg:table-cell">
                           {item.updated_at
                             ? new Date(item.updated_at).toLocaleString()
                             : item.metadata?.lastModified
                               ? new Date(item.metadata.lastModified).toLocaleString()
                               : '—'}
                         </td>
-                        <td className="px-3 py-2">
-                          <div className="flex items-center justify-end gap-1">
-                            {!isFolder ? (
-                              <>
-                                <button
-                                  type="button"
-                                  className="rounded p-1.5 hover:bg-muted disabled:opacity-50"
-                                  title={t('view')}
-                                  onClick={() => openViewer(item)}
-                                  disabled={busy}
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  className="rounded p-1.5 hover:bg-muted disabled:opacity-50"
-                                  title={t('download')}
-                                  onClick={() => void handleDownload(item)}
-                                  disabled={busy}
-                                >
-                                  <Download className="h-4 w-4" />
-                                </button>
-                                {shareable ? (
-                                  <button
-                                    type="button"
-                                    className="rounded p-1.5 hover:bg-muted disabled:opacity-50"
-                                    title={t('share')}
-                                    onClick={() => openShare(item)}
-                                    disabled={busy}
-                                  >
-                                    <Link2 className="h-4 w-4" />
-                                  </button>
-                                ) : null}
-                              </>
-                            ) : (
-                              <button
-                                type="button"
-                                className="rounded px-2 py-1 text-xs hover:bg-muted"
-                                onClick={() => openFolder(item.name)}
-                              >
-                                {t('open')}
-                              </button>
-                            )}
-                            {canWrite ? (
-                              <button
-                                type="button"
-                                className="rounded p-1.5 hover:bg-muted disabled:opacity-50"
-                                title={isFolder ? t('renameFolder') : t('renameFile')}
-                                onClick={() => startRename(item.name, isFolder)}
-                                disabled={
-                                  busy ||
-                                  (renamingName === item.name && renamingIsFolder === isFolder)
-                                }
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </button>
-                            ) : null}
-                            {grantsEnabled ? (
-                              <button
-                                type="button"
-                                className="rounded p-1.5 hover:bg-muted disabled:opacity-50"
-                                title={t('permissions')}
-                                onClick={() => openPermissions(item)}
-                                disabled={busy}
-                              >
-                                <Shield className="h-4 w-4" />
-                              </button>
-                            ) : null}
-                            {canWrite ? (
-                              <button
-                                type="button"
-                                className="rounded p-1.5 text-destructive hover:bg-muted disabled:opacity-50"
-                                title={isFolder ? t('deleteFolder') : t('delete')}
-                                onClick={() => void handleDelete(item)}
-                                disabled={busy}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            ) : null}
-                          </div>
+                        <td className="whitespace-nowrap px-2 py-2 align-middle 2xl:px-3">
+                          <ItemActions actions={actions} busy={busy} />
                         </td>
                       </tr>
                     );

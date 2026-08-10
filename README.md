@@ -40,6 +40,6 @@ storage: {
 },
 ```
 
-Admin sidebar → **Storage** → **Files**. ShellUI shares the session JWT with `storage.filesUrl`. Preview, permissions, and share-link UIs open in the ShellUI modal via hash routes on the same origin (`#/viewer`, `#/permissions`, `#/share`).
+Admin sidebar → **Storage** → **Files**. ShellUI shares the session JWT with `storage.filesUrl`. Preview, permissions, share-link, and move UIs open in the ShellUI modal via hash routes on the same origin (`#/viewer`, `#/permissions`, `#/share`, `#/move`).
 
 Share link downloads are served by storage-service at `/storage/v1/share/link/{token}` (no JWT). See storage-service [access](../storage-service/docs/access.md) and [sharing](../storage-service/docs/sharing.md) docs.
