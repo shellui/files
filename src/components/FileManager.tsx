@@ -105,6 +105,10 @@ export function FileManager() {
   const [busyName, setBusyName] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [draggingItem, setDraggingItem] = useState<DragItemPayload | null>(null);
+  const hoverNavTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hoverNavPathRef = useRef<string | null>(null);
+
+  const HOVER_OPEN_MS = 700;
 
   const selectedBucket = useMemo(
     () => buckets.find((b) => b.name === bucket) ?? null,
@@ -237,8 +241,35 @@ export function FileManager() {
     setRenamingIsFolder(false);
     setRenameValue('');
     setDropTarget(null);
+    if (hoverNavTimerRef.current != null) {
+      clearTimeout(hoverNavTimerRef.current);
+      hoverNavTimerRef.current = null;
+    }
+    hoverNavPathRef.current = null;
+  }, [prefix]);
+
+  useEffect(() => {
+    setCreatingFolder(false);
+    setNewFolderName('');
+    setRenamingName(null);
+    setRenamingIsFolder(false);
+    setRenameValue('');
+    setDropTarget(null);
     setDraggingItem(null);
-  }, [bucket, prefix]);
+    if (hoverNavTimerRef.current != null) {
+      clearTimeout(hoverNavTimerRef.current);
+      hoverNavTimerRef.current = null;
+    }
+    hoverNavPathRef.current = null;
+  }, [bucket]);
+
+  useEffect(() => {
+    return () => {
+      if (hoverNavTimerRef.current != null) {
+        clearTimeout(hoverNavTimerRef.current);
+      }
+    };
+  }, []);
 
   function startRename(itemName: string, isFolder: boolean) {
     setCreatingFolder(false);
@@ -391,14 +422,45 @@ export function FileManager() {
     }
   }
 
+  function clearHoverNavigate() {
+    if (hoverNavTimerRef.current != null) {
+      clearTimeout(hoverNavTimerRef.current);
+      hoverNavTimerRef.current = null;
+    }
+    hoverNavPathRef.current = null;
+  }
+
   function clearDropState() {
     setDropTarget(null);
+    clearHoverNavigate();
   }
 
   function isValidDestForDrag(destPrefix: string): boolean {
     if (!canWrite) return false;
     if (draggingItem) return canMoveToPrefix(draggingItem, destPrefix);
     return true;
+  }
+
+  function canHoverNavigateInto(folderPath: string): boolean {
+    if (folderPath === prefix) return false;
+    if (draggingItem) return canMoveToPrefix(draggingItem, folderPath);
+    return true;
+  }
+
+  function scheduleHoverNavigate(folderPath: string) {
+    if (!canHoverNavigateInto(folderPath)) {
+      clearHoverNavigate();
+      return;
+    }
+    if (hoverNavPathRef.current === folderPath) return;
+    clearHoverNavigate();
+    hoverNavPathRef.current = folderPath;
+    hoverNavTimerRef.current = setTimeout(() => {
+      hoverNavTimerRef.current = null;
+      hoverNavPathRef.current = null;
+      setDropTarget(dropTargetKey('current', folderPath));
+      setPrefix(folderPath);
+    }, HOVER_OPEN_MS);
   }
 
   function allowDrop(e: DragEvent, destPrefix: string) {
@@ -413,14 +475,19 @@ export function FileManager() {
   }
 
   function onDropTargetOver(e: DragEvent, key: string, destPrefix: string) {
-    if (!allowDrop(e, destPrefix)) return;
+    if (!allowDrop(e, destPrefix)) {
+      clearHoverNavigate();
+      return;
+    }
     setDropTarget(key);
+    scheduleHoverNavigate(destPrefix);
   }
 
   function onDropTargetLeave(e: DragEvent, key: string) {
     const related = e.relatedTarget as Node | null;
     if (related && e.currentTarget.contains(related)) return;
     setDropTarget((current) => (current === key ? null : current));
+    clearHoverNavigate();
   }
 
   async function handleDropOnPrefix(e: DragEvent, destPrefix: string) {
@@ -463,12 +530,14 @@ export function FileManager() {
 
   function onListDragOver(e: DragEvent) {
     if (!allowDrop(e, prefix)) return;
+    clearHoverNavigate();
     setDropTarget(dropTargetKey('current', prefix));
   }
 
   function onListDragLeave(e: DragEvent) {
     const related = e.relatedTarget as Node | null;
     if (related && e.currentTarget.contains(related)) return;
+    clearHoverNavigate();
     setDropTarget((current) =>
       current === dropTargetKey('current', prefix) ? null : current,
     );
