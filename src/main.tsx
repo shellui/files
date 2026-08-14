@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import shellui from '@shellui/sdk';
+import { shellui } from '@shellui/sdk';
 import { LangProvider, getLangFromSettings } from '@/contexts/LangContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { getAppearanceFromSettings, applyThemeToDocument } from '@/lib/theme';

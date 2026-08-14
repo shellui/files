@@ -10,13 +10,13 @@ import {
   X,
 } from 'lucide-react';
 import { formatBytes, joinPath } from '@/lib/format';
+import { unwrapStorage } from '@/lib/shellStorage';
 import {
-  downloadObject,
-  fetchObjectBlob,
   isStorageAccessDenied,
   isStorageAuthError,
   type StorageListItem,
 } from '@/lib/storageApi';
+import { shellui } from '@shellui/sdk';
 import {
   formatJsonText,
   isTextTooLarge,
@@ -31,7 +31,6 @@ export type ViewerTarget = {
 };
 
 type FileViewerProps = {
-  token: string;
   bucket: string;
   target: ViewerTarget;
   siblings: ViewerTarget[];
@@ -63,7 +62,6 @@ function kindLabel(kind: ViewerKind, t: (key: string) => string): string {
 }
 
 export function FileViewer({
-  token,
   bucket,
   target,
   siblings,
@@ -132,9 +130,11 @@ export function FileViewer({
       }
 
       try {
-        const { blob, contentType } = await fetchObjectBlob(token, bucket, target.path);
+        const blob = unwrapStorage(
+          await shellui.storage.from(bucket).download(target.path),
+        );
         if (cancelled) return;
-        const mime = contentType || listedMime || blob.type || 'application/octet-stream';
+        const mime = listedMime || blob.type || 'application/octet-stream';
         setResolvedMime(mime);
         const loadedKind = resolveViewerKind(mime, target.item.name);
 
@@ -172,13 +172,15 @@ export function FileViewer({
       cancelled = true;
       if (createdUrl) URL.revokeObjectURL(createdUrl);
     };
-  }, [token, bucket, target.path, target.item.metadata?.mimetype, target.item.metadata?.size, target.item.name, t]);
+  }, [bucket, target.path, target.item.metadata?.mimetype, target.item.metadata?.size, target.item.name, t]);
 
   const handleDownload = useCallback(async () => {
     if (authFailed) return;
     setDownloading(true);
     try {
-      const blob = await downloadObject(token, bucket, target.path);
+      const blob = unwrapStorage(
+        await shellui.storage.from(bucket).download(target.path),
+      );
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -202,7 +204,7 @@ export function FileViewer({
     } finally {
       setDownloading(false);
     }
-  }, [authFailed, token, bucket, target.path, target.item.name, t]);
+  }, [authFailed, bucket, target.path, target.item.name, t]);
 
   const markdownHtml = useMemo(
     () => (kind === 'markdown' && textContent != null ? renderMarkdownLite(textContent) : null),

@@ -61,7 +61,6 @@ export function MoveFilePage() {
 
   return (
     <MoveFileDialog
-      token={token}
       target={target}
       rootLabel={route.bucket}
       onClose={handleClose}

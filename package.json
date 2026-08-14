@@ -2,7 +2,7 @@
   "name": "shellui-files",
   "version": "0.1.0",
   "private": true,
-  "description": "ShellUI file manager — embedded in the admin panel, talks to storage-service",
+  "description": "ShellUI file manager — embedded in the admin panel; file ops go through @shellui/sdk",
   "type": "module",
   "scripts": {
     "start": "vite",

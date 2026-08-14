@@ -1,6 +1,6 @@
 # files
 
-ShellUI file manager — a small React app embedded in the **administration** iframe. It talks to [storage-service](../storage-service) with the session JWT from `@shellui/sdk`.
+ShellUI file manager — a small React app embedded in the **administration** iframe. File upload, download, list, move, and rename go through `@shellui/sdk` (`shellui.storage`); the root shell executes them against [storage-service](../storage-service) using `storage.url`. Access grants and share links still call storage-service directly with the session JWT.
 
 ## Features
 
@@ -40,6 +40,4 @@ storage: {
 },
 ```
 
-Admin sidebar → **Storage** → **Files**. ShellUI shares the session JWT with `storage.filesUrl`. Preview, permissions, share-link, and move UIs open in the ShellUI modal via hash routes on the same origin (`#/viewer`, `#/permissions`, `#/share`, `#/move`).
-
-Share link downloads are served by storage-service at `/storage/v1/share/link/{token}` (no JWT). See storage-service [access](../storage-service/docs/access.md) and [sharing](../storage-service/docs/sharing.md) docs.
+Admin sidebar → **Storage** → **Files**. ShellUI shares the session JWT with `storage.filesUrl`. Preview, permissions, share-link, and move UIs open in the ShellUI modal via hash routes on the same origin (`#/viewer`, `#/permissions`, `#/share`, `#/move`). File explorer operations use `shellui.storage` (messages to the shell); share-link downloads are served by storage-service at `/storage/v1/share/link/{token}` (no JWT). See storage-service [access](../storage-service/docs/access.md) and [sharing](../storage-service/docs/sharing.md) docs.

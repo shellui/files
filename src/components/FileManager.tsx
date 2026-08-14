@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import shellui from '@shellui/sdk';
+import { shellui } from '@shellui/sdk';
 import {
   ChevronRight,
   Download,
@@ -36,23 +36,13 @@ import {
   buildPermissionsModalUrl,
   buildShareModalUrl,
 } from '@/lib/modalRoutes';
+import { unwrapStorage } from '@/lib/shellStorage';
 import {
-  createFolder,
-  deleteFolder,
-  deleteObject,
-  downloadObject,
-  getFolderStats,
-  getStorageBaseUrl,
   isStorageAccessDenied,
   isStorageAuthError,
-  listBuckets,
-  listObjects,
   pickDefaultBucket,
-  renameFolder,
-  renameObject,
   type Bucket,
   type StorageListItem,
-  uploadObject,
 } from '@/lib/storageApi';
 import { buildViewerModalUrl } from '@/lib/viewerRoute';
 
@@ -169,7 +159,7 @@ export function FileManager() {
       return;
     }
     try {
-      const list = await listBuckets(token);
+      const list = unwrapStorage(await shellui.storage.listBuckets()) as Bucket[];
       setBuckets(list);
       setBucket((current) => {
         if (current && list.some((b) => b.name === current)) return current;
@@ -189,7 +179,9 @@ export function FileManager() {
     setLoading(true);
     setError(null);
     try {
-      const list = await listObjects(token, bucket, prefix);
+      const list = unwrapStorage(
+        await shellui.storage.from(bucket).list(prefix, { limit: 200 }),
+      ) as StorageListItem[];
       setItems(list);
     } catch (err) {
       handleApiError(err);
@@ -203,7 +195,9 @@ export function FileManager() {
   const refreshObjectsQuietly = useCallback(async () => {
     if (!token || !bucket) return;
     try {
-      const list = await listObjects(token, bucket, prefix);
+      const list = unwrapStorage(
+        await shellui.storage.from(bucket).list(prefix, { limit: 200 }),
+      ) as StorageListItem[];
       setItems(list);
     } catch (err) {
       handleApiError(err);
@@ -320,9 +314,11 @@ export function FileManager() {
     setError(null);
     try {
       if (renamingIsFolder) {
-        await renameFolder(token, bucket, fromPath, toPath);
+        unwrapStorage(
+          await shellui.storage.from(bucket).rename(fromPath, toPath, { folder: true }),
+        );
       } else {
-        await renameObject(token, bucket, fromPath, toPath);
+        unwrapStorage(await shellui.storage.from(bucket).rename(fromPath, toPath));
       }
       cancelRename();
       await loadObjects();
@@ -350,10 +346,12 @@ export function FileManager() {
     setBusyName('__create_folder__');
     setError(null);
     try {
-      const folderPath = await createFolder(token, bucket, prefix, name);
+      const created = unwrapStorage(
+        await shellui.storage.from(bucket).createFolder(joinPath(prefix, name)),
+      );
       setCreatingFolder(false);
       setNewFolderName('');
-      setPrefix(folderPath);
+      setPrefix(created.path);
     } catch (err) {
       handleApiError(err);
     } finally {
@@ -378,7 +376,9 @@ export function FileManager() {
       const path = joinPath(destPrefix, file.name);
       setBusyName(path);
       try {
-        await uploadObject(token, bucket, path, file);
+        unwrapStorage(
+          await shellui.storage.from(bucket).upload(path, file, { upsert: true }),
+        );
       } catch (err) {
         handleApiError(err);
         break;
@@ -396,7 +396,9 @@ export function FileManager() {
     setBusyName(payload.path);
     setError(null);
     try {
-      const destEntries = await listObjects(token, bucket, destPrefix);
+      const destEntries = unwrapStorage(
+        await shellui.storage.from(bucket).list(destPrefix, { limit: 200 }),
+      ) as StorageListItem[];
       const movingFolder = payload.kind === 'folder';
       const conflict = destEntries.some(
         (item) =>
@@ -410,9 +412,11 @@ export function FileManager() {
         return;
       }
       if (movingFolder) {
-        await renameFolder(token, bucket, payload.path, toPath);
+        unwrapStorage(
+          await shellui.storage.from(bucket).move(payload.path, toPath, { folder: true }),
+        );
       } else {
-        await renameObject(token, bucket, payload.path, toPath);
+        unwrapStorage(await shellui.storage.from(bucket).move(payload.path, toPath));
       }
       await loadObjects();
     } catch (err) {
@@ -596,7 +600,7 @@ export function FileManager() {
       setBusyName(path);
       setError(null);
       try {
-        const stats = await getFolderStats(token, bucket, path);
+        const stats = unwrapStorage(await shellui.storage.from(bucket).folderStats(path));
         // Empty folders (placeholder only) delete immediately; content needs confirm.
         if (stats.file_count > 0) {
           setBusyName(null);
@@ -604,7 +608,7 @@ export function FileManager() {
           if (!confirmed) return;
           setBusyName(path);
         }
-        await deleteFolder(token, bucket, path);
+        unwrapStorage(await shellui.storage.from(bucket).removeFolder(path));
         await loadObjects();
       } catch (err) {
         handleApiError(err);
@@ -619,7 +623,7 @@ export function FileManager() {
     setBusyName(path);
     setError(null);
     try {
-      await deleteObject(token, bucket, path);
+      unwrapStorage(await shellui.storage.from(bucket).remove([path]));
       await loadObjects();
     } catch (err) {
       handleApiError(err);
@@ -634,7 +638,7 @@ export function FileManager() {
     setBusyName(path);
     setError(null);
     try {
-      const blob = await downloadObject(token, bucket, path);
+      const blob = unwrapStorage(await shellui.storage.from(bucket).download(path));
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -722,7 +726,7 @@ export function FileManager() {
       <header className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
         <h1 className="font-heading text-lg font-semibold">{t('appTitle')}</h1>
         <span className="text-xs text-muted-foreground">
-          {t('storageUrl')}: {getStorageBaseUrl()}
+          {t('storageUrl')}: {shellui.initialSettings?.storage?.url ?? ''}
         </span>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <button

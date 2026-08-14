@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import shellui from '@shellui/sdk';
+import { shellui } from '@shellui/sdk';
 import { getAppearanceFromPayload, applyThemeToDocument } from '@/lib/theme';
 
 const ThemeContext = createContext<import('@shellui/sdk').Appearance | null>(null);

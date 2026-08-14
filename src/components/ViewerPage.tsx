@@ -5,8 +5,14 @@ import { FileViewer, type ViewerTarget } from '@/components/FileViewer';
 import { useShelluiAccessSession } from '@/hooks/useShelluiAccessToken';
 import { joinPath } from '@/lib/format';
 import { closeAppModal } from '@/lib/modalRoutes';
-import { isStorageAccessDenied, isStorageAuthError, listObjects } from '@/lib/storageApi';
+import { unwrapStorage } from '@/lib/shellStorage';
+import {
+  isStorageAccessDenied,
+  isStorageAuthError,
+  type StorageListItem,
+} from '@/lib/storageApi';
 import { parseViewerHash, setViewerHash } from '@/lib/viewerRoute';
+import { shellui } from '@shellui/sdk';
 
 export function ViewerPage() {
   const { t } = useTranslation();
@@ -52,7 +58,9 @@ export function ViewerPage() {
       setError(null);
       setAuthFailed(false);
       try {
-        const items = await listObjects(token, route.bucket, prefix);
+        const items = unwrapStorage(
+          await shellui.storage.from(route.bucket).list(prefix, { limit: 200 }),
+        ) as StorageListItem[];
         if (cancelled) return;
         const next = items
           .filter((item) => item.id != null)
@@ -158,7 +166,6 @@ export function ViewerPage() {
 
   return (
     <FileViewer
-      token={token}
       bucket={route.bucket}
       target={target}
       siblings={siblings.length > 0 ? siblings : [target]}

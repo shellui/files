@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import shellui, { addMessageListener } from '@shellui/sdk';
+import { addMessageListener, shellui } from '@shellui/sdk';
 import type { Settings } from '@shellui/sdk';
 import { getJwtExpiryUnix, isJwtExpired } from '@/lib/jwt';
 

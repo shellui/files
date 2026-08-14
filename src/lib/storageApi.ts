@@ -1,5 +1,3 @@
-import { FOLDER_PLACEHOLDER, joinPath } from '@/lib/format';
-
 export type BucketAccess = {
   audience: 'company' | 'owner' | 'connector' | 'restricted' | 'limited';
   readers: string;
@@ -109,14 +107,22 @@ export class StorageApiError extends Error {
   }
 }
 
+function errorStatus(err: unknown): number | undefined {
+  if (typeof err === 'object' && err !== null && 'status' in err) {
+    const status = (err as { status: unknown }).status;
+    if (typeof status === 'number') return status;
+  }
+  return undefined;
+}
+
 /** 401 from storage-service — signed-out / expired session. */
-export function isStorageAuthError(err: unknown): err is StorageApiError {
-  return err instanceof StorageApiError && err.status === 401;
+export function isStorageAuthError(err: unknown): boolean {
+  return errorStatus(err) === 401;
 }
 
 /** 403 ACL / permission denials (not session expiry). */
-export function isStorageAccessDenied(err: unknown): err is StorageApiError {
-  return err instanceof StorageApiError && err.status === 403;
+export function isStorageAccessDenied(err: unknown): boolean {
+  return errorStatus(err) === 403;
 }
 
 function storageBaseUrl(): string {
@@ -160,10 +166,6 @@ async function request<T>(
   return undefined as T;
 }
 
-export function getStorageBaseUrl() {
-  return storageBaseUrl();
-}
-
 /** Absolute URL for a share link `path_url` (e.g. `/storage/v1/share/link/{token}`). */
 export function absoluteShareUrl(pathUrl: string): string {
   if (pathUrl.startsWith('http://') || pathUrl.startsWith('https://')) return pathUrl;
@@ -176,203 +178,8 @@ export function pickDefaultBucket(buckets: Bucket[]): string {
   return company?.name ?? buckets[0]?.name ?? '';
 }
 
-export async function listBuckets(token: string): Promise<Bucket[]> {
-  return request<Bucket[]>('/storage/v1/bucket', token);
-}
-
-export async function listObjects(
-  token: string,
-  bucket: string,
-  prefix = '',
-): Promise<StorageListItem[]> {
-  const entries = await request<StorageListItem[]>(
-    `/storage/v1/object/list/${encodeURIComponent(bucket)}`,
-    token,
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        prefix,
-        limit: 200,
-        offset: 0,
-        sortBy: { column: 'name', order: 'asc' },
-      }),
-    },
-  );
-  return entries.filter((item) => item.name !== FOLDER_PLACEHOLDER);
-}
-
-export async function uploadObject(
-  token: string,
-  bucket: string,
-  path: string,
-  file: File,
-): Promise<void> {
-  const headers = new Headers();
-  headers.set('Authorization', `Bearer ${token}`);
-  headers.set('Content-Type', file.type || 'application/octet-stream');
-  headers.set('x-upsert', 'true');
-
-  const response = await fetch(
-    `${storageBaseUrl()}/storage/v1/object/${encodeURIComponent(bucket)}/${path
-      .split('/')
-      .map(encodeURIComponent)
-      .join('/')}`,
-    {
-      method: 'POST',
-      headers,
-      body: file,
-    },
-  );
-  if (!response.ok) {
-    throw await parseError(response);
-  }
-}
-
-/** Creates a virtual folder by uploading a hidden placeholder object under the path. */
-export async function createFolder(
-  token: string,
-  bucket: string,
-  parentPrefix: string,
-  folderName: string,
-): Promise<string> {
-  const folderPath = joinPath(parentPrefix, folderName.trim());
-  const markerPath = joinPath(folderPath, FOLDER_PLACEHOLDER);
-  const marker = new File([], FOLDER_PLACEHOLDER, { type: 'application/x-directory' });
-  await uploadObject(token, bucket, markerPath, marker);
-  return folderPath;
-}
-
-function objectUrl(bucket: string, path: string): string {
-  return `${storageBaseUrl()}/storage/v1/object/${encodeURIComponent(bucket)}/${path
-    .split('/')
-    .map(encodeURIComponent)
-    .join('/')}`;
-}
-
 function encodedObjectPath(bucket: string, path: string): string {
   return `${encodeURIComponent(bucket)}/${path.split('/').map(encodeURIComponent).join('/')}`;
-}
-
-export async function deleteObject(token: string, bucket: string, path: string): Promise<void> {
-  await request(
-    `/storage/v1/object/${encodedObjectPath(bucket, path)}`,
-    token,
-    { method: 'DELETE' },
-  );
-}
-
-export type FolderPrefixStats = {
-  prefix: string;
-  object_count: number;
-  file_count: number;
-  placeholder_count: number;
-  total_bytes: number;
-};
-
-/** Count objects under a folder prefix (for delete confirmation). */
-export async function getFolderStats(
-  token: string,
-  bucket: string,
-  folderPath: string,
-): Promise<FolderPrefixStats> {
-  const prefix = encodeURIComponent(folderPath.replace(/^\/+|\/+$/g, ''));
-  return request<FolderPrefixStats>(
-    `/storage/v1/object/prefix/${encodeURIComponent(bucket)}?prefix=${prefix}`,
-    token,
-  );
-}
-
-/** Recursively delete every object under a folder prefix. */
-export async function deleteFolder(
-  token: string,
-  bucket: string,
-  folderPath: string,
-): Promise<{ count: number }> {
-  return request<{ count: number }>(
-    `/storage/v1/object/prefix/${encodeURIComponent(bucket)}`,
-    token,
-    {
-      method: 'DELETE',
-      body: JSON.stringify({ prefix: folderPath.replace(/^\/+|\/+$/g, '') }),
-    },
-  );
-}
-
-export type RenameFolderResult = {
-  from: string;
-  to: string;
-  moved: number;
-  grants_updated: number;
-};
-
-/** Rename a virtual folder (moves all objects under the prefix and rewrites grants). */
-export async function renameFolder(
-  token: string,
-  bucket: string,
-  fromPath: string,
-  toPath: string,
-): Promise<RenameFolderResult> {
-  return request<RenameFolderResult>(
-    `/storage/v1/object/prefix/${encodeURIComponent(bucket)}`,
-    token,
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        from: fromPath.replace(/^\/+|\/+$/g, ''),
-        to: toPath.replace(/^\/+|\/+$/g, ''),
-      }),
-    },
-  );
-}
-
-/** Rename a file (same-bucket move via `/object/move`). */
-export async function renameObject(
-  token: string,
-  bucket: string,
-  fromPath: string,
-  toPath: string,
-): Promise<void> {
-  const from = fromPath.replace(/^\/+|\/+$/g, '');
-  const to = toPath.replace(/^\/+|\/+$/g, '');
-  await request('/storage/v1/object/move', token, {
-    method: 'POST',
-    body: JSON.stringify({
-      from: `${bucket}/${from}`,
-      to: `${bucket}/${to}`,
-    }),
-  });
-}
-
-/** Fetch object bytes for in-browser viewing (inline Content-Disposition). */
-export async function fetchObjectBlob(
-  token: string,
-  bucket: string,
-  path: string,
-): Promise<{ blob: Blob; contentType: string }> {
-  const response = await fetch(objectUrl(bucket, path), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!response.ok) {
-    throw await parseError(response);
-  }
-  const blob = await response.blob();
-  const headerType = response.headers.get('Content-Type')?.split(';')[0]?.trim() || '';
-  const contentType = headerType || blob.type || 'application/octet-stream';
-  return { blob, contentType };
-}
-
-export async function downloadObject(
-  token: string,
-  bucket: string,
-  path: string,
-): Promise<Blob> {
-  const response = await fetch(`${objectUrl(bucket, path)}?download=true`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!response.ok) {
-    throw await parseError(response);
-  }
-  return response.blob();
 }
 
 // ---------------------------------------------------------------------------

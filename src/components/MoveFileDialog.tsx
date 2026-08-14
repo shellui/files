@@ -5,14 +5,13 @@ import { isInvalidMoveDestination } from '@/lib/dnd';
 import { joinPath } from '@/lib/format';
 import { notifyFilesListChanged } from '@/lib/filesEvents';
 import { fileNameFromPath } from '@/lib/modalRoutes';
+import { unwrapStorage } from '@/lib/shellStorage';
 import {
   isStorageAccessDenied,
   isStorageAuthError,
-  listObjects,
-  renameFolder,
-  renameObject,
   type StorageListItem,
 } from '@/lib/storageApi';
+import { shellui } from '@shellui/sdk';
 
 export type MoveItemTarget = {
   bucket: string;
@@ -27,7 +26,6 @@ export type MoveItemTarget = {
 export type MoveFileTarget = MoveItemTarget;
 
 type MoveFileDialogProps = {
-  token: string;
   target: MoveItemTarget;
   rootLabel: string;
   onClose: () => void;
@@ -57,7 +55,6 @@ export function moveTargetFromPath(
 }
 
 export function MoveFileDialog({
-  token,
   target,
   rootLabel,
   onClose,
@@ -96,7 +93,9 @@ export function MoveFileDialog({
     setLoading(true);
     setError(null);
     try {
-      const entries = await listObjects(token, target.bucket, browsePrefix);
+      const entries = unwrapStorage(
+        await shellui.storage.from(target.bucket).list(browsePrefix, { limit: 200 }),
+      ) as StorageListItem[];
       setFolders(
         entries.filter((item) => {
           if (item.id != null) return false;
@@ -119,7 +118,7 @@ export function MoveFileDialog({
     } finally {
       setLoading(false);
     }
-  }, [token, target.bucket, target.path, browsePrefix, isFolder, onAuthError, t]);
+  }, [target.bucket, target.path, browsePrefix, isFolder, onAuthError, t]);
 
   useEffect(() => {
     void loadFolders();
@@ -130,7 +129,9 @@ export function MoveFileDialog({
     setBusy(true);
     setError(null);
     try {
-      const destEntries = await listObjects(token, target.bucket, browsePrefix);
+      const destEntries = unwrapStorage(
+        await shellui.storage.from(target.bucket).list(browsePrefix, { limit: 200 }),
+      ) as StorageListItem[];
       const conflict = destEntries.some(
         (item) =>
           (item.id == null) === isFolder &&
@@ -144,9 +145,15 @@ export function MoveFileDialog({
         return;
       }
       if (isFolder) {
-        await renameFolder(token, target.bucket, target.path, destinationPath);
+        unwrapStorage(
+          await shellui.storage
+            .from(target.bucket)
+            .move(target.path, destinationPath, { folder: true }),
+        );
       } else {
-        await renameObject(token, target.bucket, target.path, destinationPath);
+        unwrapStorage(
+          await shellui.storage.from(target.bucket).move(target.path, destinationPath),
+        );
       }
       notifyFilesListChanged({
         reason: 'move',
