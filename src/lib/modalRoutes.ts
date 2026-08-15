@@ -120,6 +120,54 @@ export function buildMoveModalUrl(
   return `${appBaseUrl()}/#/move?${params.toString()}`;
 }
 
+export type SelectRoute = {
+  requestId: string;
+  mode: 'folders' | 'files' | 'any';
+  multiple: boolean;
+};
+
+export function parseSelectHash(hash = window.location.hash): SelectRoute | null {
+  const { path, search } = parseHashPath(hash);
+  if (path !== '/select') return null;
+  const params = new URLSearchParams(search);
+  const requestId = params.get('requestId')?.trim() || '';
+  if (!requestId) return null;
+  const modeParam = params.get('mode');
+  const mode = modeParam === 'files' || modeParam === 'any' ? modeParam : 'folders';
+  return {
+    requestId,
+    mode,
+    multiple: params.get('multiple') === '1' || params.get('multiple') === 'true',
+  };
+}
+
+export function isSelectHash(hash = window.location.hash): boolean {
+  return parseHashPath(hash).path === '/select';
+}
+
+export type SelectResultPayload = {
+  id: string;
+  items?: Array<{
+    id: string;
+    bucket: string;
+    path: string;
+    name: string;
+    type: 'file' | 'folder';
+  }>;
+  cancelled?: boolean;
+};
+
+/** Send picker result to ShellUI root. Does not close the generic URL modal. */
+export function sendSelectResult(payload: SelectResultPayload): void {
+  if (typeof window === 'undefined') return;
+  const message = { type: 'SHELLUI_SELECT_STORAGE_RESULT', payload };
+  if (window.parent !== window) {
+    window.parent.postMessage(message, '*');
+    return;
+  }
+  window.postMessage(message, '*');
+}
+
 /** Close the ShellUI modal, or clear the hash when running standalone. */
 export function closeAppModal(): void {
   if (typeof window === 'undefined') return;

@@ -38,7 +38,7 @@ export type FileListNameContext = {
   renaming: boolean;
 };
 
-type FileListProps = {
+export type FileListProps = {
   items: StorageListItem[];
   prefix: string;
   loading?: boolean;
@@ -55,6 +55,8 @@ type FileListProps = {
   /** Disable row drag while this item is being renamed. */
   renamingName?: string | null;
   renamingIsFolder?: boolean;
+  /** When set, only these items show a checkbox / participate in select-all. */
+  canSelectItem?: (item: StorageListItem) => boolean;
 };
 
 function modifierSelectEvent(e: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean }) {
@@ -65,7 +67,7 @@ function modifierSelectEvent(e: { shiftKey: boolean; metaKey: boolean; ctrlKey: 
 }
 
 /**
- * Shared file table with checkbox multi-select. FileManager and a future
+ * Shared file table with checkbox multi-select. FileManager and the storage
  * picker modal both render this so selection / highlight stay consistent.
  */
 export function FileList({
@@ -84,6 +86,7 @@ export function FileList({
   accessFallbackDescription,
   renamingName,
   renamingIsFolder,
+  canSelectItem,
 }: FileListProps) {
   const { t } = useTranslation();
   const suppressClickRef = useRef(false);
@@ -94,6 +97,11 @@ export function FileList({
   const showActions = columns?.actions !== false && Boolean(renderActions);
   const canSelect = selection.mode !== 'none';
   const draggingPaths = new Set((dnd?.draggingItems ?? []).map((item) => item.path));
+  const selectableItems = canSelectItem ? items.filter(canSelectItem) : items;
+  const allSelectableSelected =
+    selectableItems.length > 0 && selectableItems.every((item) => selection.isSelected(item));
+  const someSelectableSelected =
+    selectableItems.some((item) => selection.isSelected(item)) && !allSelectableSelected;
 
   useEffect(() => {
     function resetClickSuppress() {
@@ -133,13 +141,18 @@ export function FileList({
                 <input
                   type="checkbox"
                   className="h-4 w-4 accent-primary"
-                  checked={selection.allSelected}
+                  checked={allSelectableSelected}
                   ref={(el) => {
-                    if (el) el.indeterminate = selection.someSelected;
+                    if (el) el.indeterminate = someSelectableSelected;
                   }}
                   onChange={() => {
-                    if (selection.allSelected) selection.clear();
-                    else selection.selectAll();
+                    if (allSelectableSelected) {
+                      for (const item of selectableItems) {
+                        if (selection.isSelected(item)) selection.toggle(item);
+                      }
+                    } else {
+                      selection.selectAll();
+                    }
                   }}
                   aria-label={t('selectAll')}
                   title={t('selectAll')}
@@ -193,6 +206,8 @@ export function FileList({
           const rowDragging = draggingPaths.has(path);
           const canDrag = Boolean(dnd?.enabled) && !renaming;
 
+          const itemSelectable = canSelectItem ? canSelectItem(item) : true;
+
           return (
             <tr
               key={fileItemKey(item)}
@@ -200,14 +215,18 @@ export function FileList({
               className={`file-list-row ${selected ? 'file-list-row-selected' : ''} ${
                 folderDropActive ? 'file-list-row-drop' : ''
               } ${rowDragging ? 'opacity-50' : ''} ${
-                canDrag ? 'cursor-grab active:cursor-grabbing' : canSelect ? 'cursor-pointer' : ''
+                canDrag ? 'cursor-grab active:cursor-grabbing' : canSelect && itemSelectable ? 'cursor-pointer' : ''
               }`}
               draggable={canDrag}
               onClick={(e) => {
-                if (!canSelect || suppressClickRef.current) return;
+                if (suppressClickRef.current) return;
                 const target = e.target as HTMLElement;
                 if (target.closest('button, a, input, label, [data-no-select]')) return;
-                selection.select(item, modifierSelectEvent(e));
+                if (canSelect && itemSelectable) {
+                  selection.select(item, modifierSelectEvent(e));
+                  return;
+                }
+                if (isFolder) onOpen(item);
               }}
               onDragStart={
                 dnd?.enabled && !renaming
@@ -262,23 +281,27 @@ export function FileList({
                   onMouseDown={(e) => e.stopPropagation()}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <label className="flex min-h-10 cursor-pointer items-center justify-center px-2 py-2">
-                    <input
-                      type="checkbox"
-                      draggable={false}
-                      className="h-4 w-4 shrink-0 accent-primary"
-                      checked={selected}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => {
-                        selection.select(item, {
-                          additive: true,
-                          range: (e.nativeEvent as MouseEvent).shiftKey,
-                        });
-                      }}
-                      aria-label={t('selectItem', { name: item.name })}
-                    />
-                  </label>
+                  {itemSelectable ? (
+                    <label className="flex min-h-10 cursor-pointer items-center justify-center px-2 py-2">
+                      <input
+                        type="checkbox"
+                        draggable={false}
+                        className="h-4 w-4 shrink-0 accent-primary"
+                        checked={selected}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          selection.select(item, {
+                            additive: true,
+                            range: (e.nativeEvent as MouseEvent).shiftKey,
+                          });
+                        }}
+                        aria-label={t('selectItem', { name: item.name })}
+                      />
+                    </label>
+                  ) : (
+                    <span className="block min-h-10" />
+                  )}
                 </td>
               ) : null}
               <td className="max-w-0 w-full min-w-0 overflow-hidden px-3 py-2">

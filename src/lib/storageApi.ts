@@ -27,6 +27,7 @@ export type StorageListItem = {
   id: string | null;
   name: string;
   bucket_id?: string;
+  folder_id?: string | null;
   metadata: {
     size?: number;
     mimetype?: string;

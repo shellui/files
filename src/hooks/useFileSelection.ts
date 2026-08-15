@@ -24,8 +24,8 @@ type UseFileSelectionOptions = {
 };
 
 /**
- * Multi-select state for a file listing. Shared by the manager and a future
- * file-picker modal (`mode: 'single' | 'multiple'`).
+ * Multi-select state for a file listing. Shared by the manager and the
+ * storage picker modal (`mode: 'single' | 'multiple'`).
  */
 export function useFileSelection({
   items,
