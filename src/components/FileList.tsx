@@ -1,4 +1,4 @@
-import { useRef, type DragEvent, type ReactNode } from 'react';
+import { useEffect, useRef, type DragEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { File as FileIcon, Folder, Loader2 } from 'lucide-react';
 import type { FileSelection } from '@/hooks/useFileSelection';
@@ -94,6 +94,18 @@ export function FileList({
   const showActions = columns?.actions !== false && Boolean(renderActions);
   const canSelect = selection.mode !== 'none';
   const draggingPaths = new Set((dnd?.draggingItems ?? []).map((item) => item.path));
+
+  useEffect(() => {
+    function resetClickSuppress() {
+      suppressClickRef.current = false;
+    }
+    document.addEventListener('dragend', resetClickSuppress, true);
+    document.addEventListener('drop', resetClickSuppress, true);
+    return () => {
+      document.removeEventListener('dragend', resetClickSuppress, true);
+      document.removeEventListener('drop', resetClickSuppress, true);
+    };
+  }, []);
 
   if (loading) {
     return (

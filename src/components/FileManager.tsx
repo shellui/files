@@ -28,6 +28,7 @@ import {
   canMoveToPrefix,
   dropTargetKey,
   isAcceptableDrop,
+  isAlreadyInPrefix,
   isInternalFileDrag,
   readDragItemsPayload,
   setDragCountImage,
@@ -217,6 +218,7 @@ export function FileManager() {
     setRenamingIsFolder(false);
     setRenameValue('');
     setDropTarget(null);
+    setDraggingItems(null);
     if (hoverNavTimerRef.current != null) {
       clearTimeout(hoverNavTimerRef.current);
       hoverNavTimerRef.current = null;
@@ -393,7 +395,10 @@ export function FileManager() {
   async function moveItemsToPrefix(payloads: DragItemPayload[], destPrefix: string) {
     if (!token || !bucket || !canWrite) return;
     const movable = payloads.filter(
-      (payload) => payload.path !== destPrefix && canMoveToPrefix(payload, destPrefix),
+      (payload) =>
+        payload.path !== destPrefix &&
+        !isAlreadyInPrefix(payload, destPrefix) &&
+        canMoveToPrefix(payload, destPrefix),
     );
     if (movable.length === 0) return;
 
@@ -544,6 +549,26 @@ export function FileManager() {
     setDraggingItems(null);
     clearDropState();
   }
+
+  useEffect(() => {
+    function endDragUi() {
+      setDraggingItems(null);
+      setDropTarget(null);
+      if (hoverNavTimerRef.current != null) {
+        clearTimeout(hoverNavTimerRef.current);
+        hoverNavTimerRef.current = null;
+      }
+      hoverNavPathRef.current = null;
+    }
+    document.addEventListener('dragend', endDragUi, true);
+    document.addEventListener('drop', endDragUi, true);
+    window.addEventListener('blur', endDragUi);
+    return () => {
+      document.removeEventListener('dragend', endDragUi, true);
+      document.removeEventListener('drop', endDragUi, true);
+      window.removeEventListener('blur', endDragUi);
+    };
+  }, []);
 
   function onListDragOver(e: DragEvent) {
     if (!allowDrop(e, prefix)) return;

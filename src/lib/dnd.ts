@@ -48,11 +48,18 @@ export function isInvalidMoveDestination(
   return destPrefix.startsWith(`${sourcePath}/`);
 }
 
+export function isAlreadyInPrefix(
+  payload: Pick<DragItemPayload, 'parentPrefix'>,
+  destPrefix: string,
+): boolean {
+  return payload.parentPrefix === destPrefix;
+}
+
+/** False only for folder-into-self/descendant. Same-folder drops are allowed in the UI and ignored on drop. */
 export function canMoveToPrefix(
   payload: Pick<DragItemPayload, 'path' | 'parentPrefix' | 'kind'>,
   destPrefix: string,
 ): boolean {
-  if (payload.parentPrefix === destPrefix) return false;
   return !isInvalidMoveDestination(payload.path, payload.kind, destPrefix);
 }
 
