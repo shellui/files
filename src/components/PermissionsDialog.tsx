@@ -24,7 +24,7 @@ export type PermissionsTarget = {
 
 type PermissionsDialogProps = {
   token: string;
-  target: PermissionsTarget;
+  targets: PermissionsTarget[];
   companyId: number | null;
   currentUserId: number | null;
   canManageDeny: boolean;
@@ -56,7 +56,7 @@ function isSelfAllow(
 
 export function PermissionsDialog({
   token,
-  target,
+  targets,
   companyId,
   currentUserId,
   canManageDeny,
@@ -65,6 +65,8 @@ export function PermissionsDialog({
   variant = 'overlay',
 }: PermissionsDialogProps) {
   const { t } = useTranslation();
+  const target = targets[0];
+  const isBulk = targets.length > 1;
   const [grants, setGrants] = useState<AccessGrant[]>([]);
   const [privateAncestor, setPrivateAncestor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,6 +79,13 @@ export function PermissionsDialog({
   const [effect, setEffect] = useState<GrantEffect>('allow');
 
   const load = useCallback(async () => {
+    if (!target) return;
+    if (isBulk) {
+      setGrants([]);
+      setPrivateAncestor(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -96,7 +105,7 @@ export function PermissionsDialog({
     } finally {
       setLoading(false);
     }
-  }, [token, target, onAuthError, t]);
+  }, [token, target, isBulk, onAuthError, t]);
 
   useEffect(() => {
     void load();
@@ -108,22 +117,23 @@ export function PermissionsDialog({
   );
   const hasLocalPrivate = companyDenyGrants.length > 0;
   const isPrivate = hasLocalPrivate || Boolean(privateAncestor);
-  const hasSelfAllow = useMemo(
-    () => grants.some((g) => isSelfAllow(g, currentUserId)),
-    [grants, currentUserId],
-  );
 
-  const canMakePrivate =
-    canManageDeny && !isPrivate && companyId != null && currentUserId != null;
+  const canMakePrivate = isBulk
+    ? canManageDeny && companyId != null && currentUserId != null
+    : canManageDeny && !isPrivate && companyId != null && currentUserId != null;
   // Cannot open to company while sitting under a private parent folder.
-  const canMakePublic = canManageDeny && hasLocalPrivate && !privateAncestor;
+  const canMakePublic = isBulk
+    ? canManageDeny
+    : canManageDeny && hasLocalPrivate && !privateAncestor;
 
   function notifyAccessChanged() {
-    notifyFilesListChanged({
-      reason: 'access',
-      bucket: target.bucket,
-      path: target.path,
-    });
+    for (const item of targets) {
+      notifyFilesListChanged({
+        reason: 'access',
+        bucket: item.bucket,
+        path: item.path,
+      });
+    }
   }
 
   async function runGrantAction(action: () => Promise<void>) {
@@ -162,15 +172,17 @@ export function PermissionsDialog({
       return;
     }
     await runGrantAction(async () => {
-      await createAccessGrant(token, {
-        bucket: target.bucket,
-        subject_type: subjectType,
-        subject_id: sid,
-        resource_type: target.resourceType,
-        resource_id: target.path,
-        permission,
-        effect,
-      });
+      for (const item of targets) {
+        await createAccessGrant(token, {
+          bucket: item.bucket,
+          subject_type: subjectType,
+          subject_id: sid,
+          resource_type: item.resourceType,
+          resource_id: item.path,
+          permission,
+          effect,
+        });
+      }
       setSubjectId('');
     });
   }
@@ -181,53 +193,81 @@ export function PermissionsDialog({
       return;
     }
     await runGrantAction(async () => {
-      // Allow yourself first — a company deny alone would lock the creator out
-      // before the allow grant can be created (deny is more specific on objects).
-      if (!hasSelfAllow) {
-        await createAccessGrant(token, {
-          bucket: target.bucket,
-          subject_type: 'user',
-          subject_id: String(currentUserId),
-          resource_type: target.resourceType,
-          resource_id: target.path,
-          permission: 'admin',
-          effect: 'allow',
-          notes: 'Private — owner access',
-        });
-      }
-      if (companyDenyGrants.length === 0) {
-        await createAccessGrant(token, {
-          bucket: target.bucket,
-          subject_type: 'company',
-          subject_id: String(companyId),
-          resource_type: target.resourceType,
-          resource_id: target.path,
-          permission: 'read',
-          effect: 'deny',
-          notes: 'Private — company default denied',
-        });
+      for (const item of targets) {
+        const result = isBulk
+          ? await listAccessGrantsEffective(token, {
+              bucket: item.bucket,
+              resource_type: item.resourceType,
+              resource_id: item.path,
+            })
+          : { grants, private_ancestor: privateAncestor };
+        if (result.private_ancestor) continue;
+        const itemGrants = result.grants;
+        const itemHasSelfAllow = itemGrants.some((g) => isSelfAllow(g, currentUserId));
+        const itemCompanyDeny = itemGrants.filter((g) => isCompanyDenyRead(g, companyId));
+        // Allow yourself first — a company deny alone would lock the creator out
+        // before the allow grant can be created (deny is more specific on objects).
+        if (!itemHasSelfAllow) {
+          await createAccessGrant(token, {
+            bucket: item.bucket,
+            subject_type: 'user',
+            subject_id: String(currentUserId),
+            resource_type: item.resourceType,
+            resource_id: item.path,
+            permission: 'admin',
+            effect: 'allow',
+            notes: 'Private — owner access',
+          });
+        }
+        if (itemCompanyDeny.length === 0) {
+          await createAccessGrant(token, {
+            bucket: item.bucket,
+            subject_type: 'company',
+            subject_id: String(companyId),
+            resource_type: item.resourceType,
+            resource_id: item.path,
+            permission: 'read',
+            effect: 'deny',
+            notes: 'Private — company default denied',
+          });
+        }
       }
     });
   }
 
   async function handleMakePublic() {
-    if (privateAncestor) {
+    if (!isBulk && privateAncestor) {
       setError(t('permissionsParentPrivate', { folder: privateAncestor }));
       return;
     }
     await runGrantAction(async () => {
-      // Drop company deny so company defaults apply again.
-      for (const grant of companyDenyGrants) {
-        await deleteAccessGrant(token, grant.id);
-      }
-      // Individual allows are redundant once the company can access — remove them.
-      const redundantAllows = grants.filter(
-        (g) =>
-          g.effect === 'allow' &&
-          (g.subject_type === 'user' || g.subject_type === 'group'),
-      );
-      for (const grant of redundantAllows) {
-        await deleteAccessGrant(token, grant.id);
+      for (const item of targets) {
+        const result = isBulk
+          ? await listAccessGrantsEffective(token, {
+              bucket: item.bucket,
+              resource_type: item.resourceType,
+              resource_id: item.path,
+            })
+          : { grants, private_ancestor: privateAncestor };
+        if (result.private_ancestor) {
+          if (!isBulk) {
+            setError(t('permissionsParentPrivate', { folder: result.private_ancestor }));
+            return;
+          }
+          continue;
+        }
+        const itemCompanyDeny = result.grants.filter((g) => isCompanyDenyRead(g, companyId));
+        for (const grant of itemCompanyDeny) {
+          await deleteAccessGrant(token, grant.id);
+        }
+        const redundantAllows = result.grants.filter(
+          (g) =>
+            g.effect === 'allow' &&
+            (g.subject_type === 'user' || g.subject_type === 'group'),
+        );
+        for (const grant of redundantAllows) {
+          await deleteAccessGrant(token, grant.id);
+        }
       }
     });
   }
@@ -257,6 +297,7 @@ export function PermissionsDialog({
   }
 
   const embedded = variant === 'embedded';
+  if (!target) return null;
   const shell = (
     <div
       className={
@@ -276,9 +317,11 @@ export function PermissionsDialog({
             {t('permissionsTitle')}
           </h2>
           <p className="truncate text-sm text-muted-foreground">
-            {target.resourceType === 'folder'
-              ? t('permissionsFolder', { name: target.name })
-              : t('permissionsFile', { name: target.name })}
+            {isBulk
+              ? t('permissionsBulk', { count: targets.length })
+              : target.resourceType === 'folder'
+                ? t('permissionsFolder', { name: target.name })
+                : t('permissionsFile', { name: target.name })}
           </p>
         </div>
         {!embedded ? (
@@ -294,9 +337,21 @@ export function PermissionsDialog({
       </header>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-auto px-4 py-3">
-        <p className="text-xs text-muted-foreground">{t('permissionsHelp')}</p>
+        <p className="text-xs text-muted-foreground">
+          {isBulk ? t('permissionsBulkHelp') : t('permissionsHelp')}
+        </p>
 
-        {!loading ? (
+        {isBulk ? (
+          <ul className="max-h-32 space-y-1 overflow-auto rounded-md border border-border/70 px-2 py-1.5 text-sm">
+            {targets.map((item) => (
+              <li key={`${item.resourceType}:${item.path}`} className="truncate" title={item.path}>
+                {item.name}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        {!loading && !isBulk ? (
           <div className="flex flex-wrap items-center gap-2">
             <span
               className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs ${
@@ -363,6 +418,7 @@ export function PermissionsDialog({
           </div>
         ) : null}
 
+        {!isBulk ? (
         <div>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t('permissionsCurrent')}
@@ -398,6 +454,7 @@ export function PermissionsDialog({
             </ul>
           )}
         </div>
+        ) : null}
 
         <form className="space-y-2 border-t border-border pt-3" onSubmit={(e) => void handleCreate(e)}>
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">

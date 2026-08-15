@@ -21,10 +21,14 @@ export function fileNameFromPath(path: string): string {
   return parts[parts.length - 1] || path;
 }
 
-export type PermissionsRoute = {
-  bucket: string;
+export type PermissionsRouteItem = {
   path: string;
   resourceType: 'folder' | 'object';
+};
+
+export type PermissionsRoute = {
+  bucket: string;
+  items: PermissionsRouteItem[];
 };
 
 export type ShareRoute = {
@@ -37,10 +41,14 @@ export function parsePermissionsHash(hash = window.location.hash): PermissionsRo
   if (path !== '/permissions') return null;
   const params = new URLSearchParams(search);
   const bucket = params.get('bucket')?.trim() || '';
-  const objectPath = params.get('path')?.trim() || '';
-  const resourceType = params.get('type') === 'folder' ? 'folder' : 'object';
-  if (!bucket || !objectPath) return null;
-  return { bucket, path: objectPath, resourceType };
+  const paths = params.getAll('path').map((value) => value.trim()).filter(Boolean);
+  const types = params.getAll('type');
+  if (!bucket || paths.length === 0) return null;
+  const items: PermissionsRouteItem[] = paths.map((objectPath, index) => ({
+    path: objectPath,
+    resourceType: types[index] === 'folder' ? 'folder' : 'object',
+  }));
+  return { bucket, items };
 }
 
 export function isPermissionsHash(hash = window.location.hash): boolean {
@@ -49,14 +57,13 @@ export function isPermissionsHash(hash = window.location.hash): boolean {
 
 export function buildPermissionsModalUrl(
   bucket: string,
-  path: string,
-  resourceType: 'folder' | 'object',
+  items: PermissionsRouteItem[],
 ): string {
-  const params = new URLSearchParams({
-    bucket,
-    path,
-    type: resourceType,
-  });
+  const params = new URLSearchParams({ bucket });
+  for (const item of items) {
+    params.append('path', item.path);
+    params.append('type', item.resourceType);
+  }
   return `${appBaseUrl()}/#/permissions?${params.toString()}`;
 }
 

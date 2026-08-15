@@ -10,6 +10,10 @@ export type DragItemPayload = {
   kind: DragItemKind;
 };
 
+export type DragItemsPayload = {
+  items: DragItemPayload[];
+};
+
 /** @deprecated Use DragItemPayload */
 export type DragFilePayload = DragItemPayload;
 
@@ -52,21 +56,47 @@ export function canMoveToPrefix(
   return !isInvalidMoveDestination(payload.path, payload.kind, destPrefix);
 }
 
-export function readDragItemPayload(dt: DataTransfer): DragItemPayload | null {
+export function canMoveAnyToPrefix(
+  payloads: Pick<DragItemPayload, 'path' | 'parentPrefix' | 'kind'>[],
+  destPrefix: string,
+): boolean {
+  return payloads.some((payload) => canMoveToPrefix(payload, destPrefix));
+}
+
+function normalizePayload(parsed: Partial<DragItemPayload>): DragItemPayload | null {
+  if (!parsed?.path || !parsed?.name) return null;
+  return {
+    path: parsed.path,
+    name: parsed.name,
+    parentPrefix: parsed.parentPrefix || '',
+    kind: parsed.kind === 'folder' ? 'folder' : 'file',
+  };
+}
+
+export function writeDragItemsPayload(dt: DataTransfer, items: DragItemPayload[]): void {
+  const payload: DragItemsPayload = { items };
+  dt.setData(DND_FILE_MIME, JSON.stringify(payload));
+}
+
+export function readDragItemsPayload(dt: DataTransfer): DragItemPayload[] {
   const raw = dt.getData(DND_FILE_MIME);
-  if (!raw) return null;
+  if (!raw) return [];
   try {
-    const parsed = JSON.parse(raw) as Partial<DragItemPayload>;
-    if (!parsed?.path || !parsed?.name) return null;
-    return {
-      path: parsed.path,
-      name: parsed.name,
-      parentPrefix: parsed.parentPrefix || '',
-      kind: parsed.kind === 'folder' ? 'folder' : 'file',
-    };
+    const parsed = JSON.parse(raw) as DragItemsPayload | Partial<DragItemPayload>;
+    if (parsed && Array.isArray((parsed as DragItemsPayload).items)) {
+      return (parsed as DragItemsPayload).items
+        .map((item) => normalizePayload(item))
+        .filter((item): item is DragItemPayload => item != null);
+    }
+    const single = normalizePayload(parsed as Partial<DragItemPayload>);
+    return single ? [single] : [];
   } catch {
-    return null;
+    return [];
   }
+}
+
+export function readDragItemPayload(dt: DataTransfer): DragItemPayload | null {
+  return readDragItemsPayload(dt)[0] ?? null;
 }
 
 /** @deprecated Use readDragItemPayload */
@@ -77,4 +107,82 @@ export function dropTargetKey(
   path: string,
 ): string {
   return `${kind}:${path}`;
+}
+
+const dragGhostId = 'shellui-files-drag-ghost';
+
+function cssVar(name: string, fallback: string): string {
+  if (typeof window === 'undefined') return fallback;
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return value || fallback;
+}
+
+/**
+ * Custom drag image: first item name plus a count badge when moving several.
+ * The ghost is positioned off-screen; the browser snapshots it on dragstart.
+ */
+export function setDragCountImage(
+  dt: DataTransfer,
+  items: Pick<DragItemPayload, 'name'>[],
+): void {
+  if (typeof document === 'undefined' || items.length === 0) return;
+  document.getElementById(dragGhostId)?.remove();
+
+  const ghost = document.createElement('div');
+  ghost.id = dragGhostId;
+  ghost.setAttribute('aria-hidden', 'true');
+  const bg = cssVar('--card', '#ffffff');
+  const fg = cssVar('--foreground', '#0a0a0a');
+  const border = cssVar('--border', '#e5e5e5');
+  const primary = cssVar('--primary', '#171717');
+  const primaryFg = cssVar('--primary-foreground', '#fafafa');
+
+  ghost.style.cssText = [
+    'position:absolute',
+    'top:-1000px',
+    'left:0',
+    'display:flex',
+    'align-items:center',
+    'gap:8px',
+    'max-width:16rem',
+    'padding:6px 10px',
+    `background:${bg}`,
+    `color:${fg}`,
+    `border:1px solid ${border}`,
+    'border-radius:8px',
+    'box-shadow:0 8px 24px rgba(0,0,0,0.18)',
+    'font:600 13px/1.2 system-ui,sans-serif',
+    'pointer-events:none',
+    'white-space:nowrap',
+    'z-index:0',
+  ].join(';');
+
+  const label = document.createElement('span');
+  label.textContent = items[0]?.name || '';
+  label.style.cssText = 'overflow:hidden;text-overflow:ellipsis';
+  ghost.appendChild(label);
+
+  if (items.length > 1) {
+    const badge = document.createElement('span');
+    badge.textContent = String(items.length);
+    badge.style.cssText = [
+      'display:inline-flex',
+      'align-items:center',
+      'justify-content:center',
+      'min-width:1.25rem',
+      'height:1.25rem',
+      'padding:0 6px',
+      'border-radius:999px',
+      `background:${primary}`,
+      `color:${primaryFg}`,
+      'font-size:11px',
+      'font-weight:700',
+      'flex-shrink:0',
+    ].join(';');
+    ghost.appendChild(badge);
+  }
+
+  document.body.appendChild(ghost);
+  dt.setDragImage(ghost, 16, 16);
+  window.setTimeout(() => ghost.remove(), 0);
 }

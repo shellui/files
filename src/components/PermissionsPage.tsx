@@ -27,14 +27,14 @@ export function PermissionsPage() {
     [token],
   );
 
-  const target = useMemo(() => {
-    if (!route) return null;
-    return {
+  const targets = useMemo(() => {
+    if (!route) return [];
+    return route.items.map((item) => ({
       bucket: route.bucket,
-      path: route.path,
-      name: fileNameFromPath(route.path),
-      resourceType: route.resourceType,
-    };
+      path: item.path,
+      name: fileNameFromPath(item.path),
+      resourceType: item.resourceType,
+    }));
   }, [route]);
 
   const handleClose = useCallback(() => {
@@ -49,7 +49,7 @@ export function PermissionsPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [handleClose]);
 
-  if (!route || !target) {
+  if (!route || targets.length === 0) {
     return (
       <div className="flex h-full min-h-screen items-center justify-center p-6 text-sm text-muted-foreground">
         {t('permissionsMissingParams')}
@@ -77,7 +77,7 @@ export function PermissionsPage() {
   return (
     <PermissionsDialog
       token={token}
-      target={target}
+      targets={targets}
       companyId={claims?.companyId ?? null}
       currentUserId={claims?.userId ?? null}
       canManageDeny={Boolean(claims?.isCompanyOwner || claims?.isStaff)}

@@ -176,6 +176,20 @@ const resources = {
       viewerKindJson: 'JSON',
       viewerKindUnsupported: 'Binary',
       viewerMissingParams: 'Missing bucket or path for preview.',
+      select: 'Select',
+      selectAll: 'Select all',
+      selectItem: 'Select {{name}}',
+      selectedCount_one: '1 selected',
+      selectedCount_other: '{{count}} selected',
+      clearSelection: 'Clear selection',
+      deleteSelectedTitle: 'Delete {{count}} items?',
+      deleteSelectedConfirm:
+        'Delete {{count}} selected items? This cannot be undone.',
+      deleteSelectedConfirmWithFolders:
+        'Delete {{count}} selected items, including {{folderCount}} folder(s) and their contents? This cannot be undone.',
+      permissionsBulk: '{{count}} items',
+      permissionsBulkHelp:
+        'Grants you add here, and Make private / Make public, apply to every selected item.',
     },
   },
   fr: {
@@ -359,6 +373,20 @@ const resources = {
       viewerKindJson: 'JSON',
       viewerKindUnsupported: 'Binaire',
       viewerMissingParams: 'Bucket ou chemin manquant pour l’aperçu.',
+      select: 'Sélectionner',
+      selectAll: 'Tout sélectionner',
+      selectItem: 'Sélectionner {{name}}',
+      selectedCount_one: '1 sélectionné',
+      selectedCount_other: '{{count}} sélectionnés',
+      clearSelection: 'Effacer la sélection',
+      deleteSelectedTitle: 'Supprimer {{count}} éléments ?',
+      deleteSelectedConfirm:
+        'Supprimer {{count}} éléments sélectionnés ? Cette action est irréversible.',
+      deleteSelectedConfirmWithFolders:
+        'Supprimer {{count}} éléments sélectionnés, dont {{folderCount}} dossier(s) et leur contenu ? Cette action est irréversible.',
+      permissionsBulk: '{{count}} éléments',
+      permissionsBulkHelp:
+        'Les grants ajoutés ici, ainsi que Rendre privé / Rendre public, s’appliquent à chaque élément sélectionné.',
     },
   },
 };

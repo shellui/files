@@ -11,26 +11,32 @@ import {
   FolderOpen,
   FolderPlus,
   Link2,
-  Loader2,
   Pencil,
   RefreshCw,
   Shield,
   Trash2,
   Upload,
 } from 'lucide-react';
-import { useShelluiAccessSession } from '@/hooks/useShelluiAccessToken';
+import { FileList, dropHighlightClass } from '@/components/FileList';
 import { ItemActions, type ItemAction } from '@/components/ItemActions';
+import { SelectionToolbar } from '@/components/SelectionToolbar';
+import { useFileSelection } from '@/hooks/useFileSelection';
+import { useShelluiAccessSession } from '@/hooks/useShelluiAccessToken';
+import { accessLabelKey } from '@/lib/accessLabel';
 import {
-  DND_FILE_MIME,
+  canMoveAnyToPrefix,
   canMoveToPrefix,
   dropTargetKey,
   isAcceptableDrop,
   isInternalFileDrag,
-  readDragItemPayload,
+  readDragItemsPayload,
+  setDragCountImage,
+  writeDragItemsPayload,
   type DragItemPayload,
 } from '@/lib/dnd';
+import { isFolderItem, toDragPayload } from '@/lib/fileSelection';
 import { subscribeFilesListChanged } from '@/lib/filesEvents';
-import { formatBytes, isValidFileName, isValidFolderName, joinPath } from '@/lib/format';
+import { isValidFileName, isValidFolderName, joinPath } from '@/lib/format';
 import {
   buildMoveModalUrl,
   buildPermissionsModalUrl,
@@ -45,36 +51,6 @@ import {
   type StorageListItem,
 } from '@/lib/storageApi';
 import { buildViewerModalUrl } from '@/lib/viewerRoute';
-
-const dropHighlightClass = 'bg-primary/10 ring-1 ring-inset ring-primary/35';
-
-function accessLabelKey(audience: string | undefined): string {
-  if (audience === 'company') return 'accessCompany';
-  if (audience === 'owner') return 'accessOwner';
-  if (audience === 'connector') return 'accessConnector';
-  if (audience === 'restricted') return 'accessRestricted';
-  if (audience === 'limited') return 'accessLimited';
-  return 'accessUnknown';
-}
-
-function accessRowLabel(
-  access: StorageListItem['access'] | undefined,
-  fallbackAudience: string | undefined,
-  t: (key: string, opts?: Record<string, unknown>) => string,
-): string {
-  const audience = access?.audience || fallbackAudience;
-  if (audience === 'restricted') {
-    const n = access?.allowed_user_ids?.length ?? 0;
-    if (n > 0) return t('accessRestrictedUsers', { count: n });
-    return t('accessRestricted');
-  }
-  if (audience === 'limited') {
-    const grants = access?.grant_count ?? 0;
-    if (grants > 0) return t('accessLimitedGrants', { count: grants });
-    return t('accessLimited');
-  }
-  return t(accessLabelKey(audience));
-}
 
 export function FileManager() {
   const { t } = useTranslation();
@@ -94,11 +70,17 @@ export function FileManager() {
   const [renameValue, setRenameValue] = useState('');
   const [busyName, setBusyName] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
-  const [draggingItem, setDraggingItem] = useState<DragItemPayload | null>(null);
+  const [draggingItems, setDraggingItems] = useState<DragItemPayload[] | null>(null);
   const hoverNavTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hoverNavPathRef = useRef<string | null>(null);
 
   const HOVER_OPEN_MS = 700;
+
+  const selection = useFileSelection({
+    items,
+    listingKey: `${bucket}\0${prefix}`,
+    mode: 'multiple',
+  });
 
   const selectedBucket = useMemo(
     () => buckets.find((b) => b.name === bucket) ?? null,
@@ -249,7 +231,7 @@ export function FileManager() {
     setRenamingIsFolder(false);
     setRenameValue('');
     setDropTarget(null);
-    setDraggingItem(null);
+    setDraggingItems(null);
     if (hoverNavTimerRef.current != null) {
       clearTimeout(hoverNavTimerRef.current);
       hoverNavTimerRef.current = null;
@@ -264,6 +246,25 @@ export function FileManager() {
       }
     };
   }, []);
+
+  const { clear: clearSelection, selectAll } = selection;
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      const inField = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+      if (e.key === 'Escape' && !inField) {
+        clearSelection();
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a' && !inField) {
+        e.preventDefault();
+        selectAll();
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [clearSelection, selectAll]);
 
   function startRename(itemName: string, isFolder: boolean) {
     setCreatingFolder(false);
@@ -389,38 +390,48 @@ export function FileManager() {
     await loadObjects();
   }
 
-  async function moveItemToPrefix(payload: DragItemPayload, destPrefix: string) {
+  async function moveItemsToPrefix(payloads: DragItemPayload[], destPrefix: string) {
     if (!token || !bucket || !canWrite) return;
-    if (!canMoveToPrefix(payload, destPrefix)) return;
-    const toPath = joinPath(destPrefix, payload.name);
-    setBusyName(payload.path);
+    const movable = payloads.filter(
+      (payload) => payload.path !== destPrefix && canMoveToPrefix(payload, destPrefix),
+    );
+    if (movable.length === 0) return;
+
+    setBusyName(movable.length === 1 ? movable[0].path : '__bulk__');
     setError(null);
     try {
       const destEntries = unwrapStorage(
         await shellui.storage.from(bucket).list(destPrefix, { limit: 200 }),
       ) as StorageListItem[];
-      const movingFolder = payload.kind === 'folder';
-      const conflict = destEntries.some(
-        (item) =>
-          (item.id == null) === movingFolder &&
-          item.name.toLowerCase() === payload.name.toLowerCase(),
-      );
-      if (conflict) {
-        setError(
-          t(movingFolder ? 'folderExists' : 'fileExists', { name: payload.name }),
+      for (const payload of movable) {
+        const movingFolder = payload.kind === 'folder';
+        const conflict = destEntries.some(
+          (item) =>
+            (item.id == null) === movingFolder &&
+            item.name.toLowerCase() === payload.name.toLowerCase(),
         );
-        return;
+        if (conflict) {
+          setError(
+            t(movingFolder ? 'folderExists' : 'fileExists', { name: payload.name }),
+          );
+          return;
+        }
       }
-      if (movingFolder) {
-        unwrapStorage(
-          await shellui.storage.from(bucket).move(payload.path, toPath, { folder: true }),
-        );
-      } else {
-        unwrapStorage(await shellui.storage.from(bucket).move(payload.path, toPath));
+      for (const payload of movable) {
+        const toPath = joinPath(destPrefix, payload.name);
+        if (payload.kind === 'folder') {
+          unwrapStorage(
+            await shellui.storage.from(bucket).move(payload.path, toPath, { folder: true }),
+          );
+        } else {
+          unwrapStorage(await shellui.storage.from(bucket).move(payload.path, toPath));
+        }
       }
+      selection.clear();
       await loadObjects();
     } catch (err) {
       handleApiError(err);
+      await loadObjects();
     } finally {
       setBusyName(null);
     }
@@ -441,13 +452,17 @@ export function FileManager() {
 
   function isValidDestForDrag(destPrefix: string): boolean {
     if (!canWrite) return false;
-    if (draggingItem) return canMoveToPrefix(draggingItem, destPrefix);
+    if (draggingItems?.length) {
+      if (draggingItems.some((item) => item.path === destPrefix)) return false;
+      return canMoveAnyToPrefix(draggingItems, destPrefix);
+    }
     return true;
   }
 
   function canHoverNavigateInto(folderPath: string): boolean {
     if (folderPath === prefix) return false;
-    if (draggingItem) return canMoveToPrefix(draggingItem, folderPath);
+    if (draggingItems?.some((item) => item.path === folderPath)) return false;
+    if (draggingItems?.length) return canMoveAnyToPrefix(draggingItems, folderPath);
     return true;
   }
 
@@ -500,9 +515,9 @@ export function FileManager() {
     clearDropState();
     if (!canWrite || !token || !bucket) return;
 
-    const payload = readDragItemPayload(e.dataTransfer);
-    if (payload) {
-      await moveItemToPrefix(payload, destPrefix);
+    const payloads = readDragItemsPayload(e.dataTransfer);
+    if (payloads.length) {
+      await moveItemsToPrefix(payloads, destPrefix);
       return;
     }
     if (e.dataTransfer.files?.length) {
@@ -510,25 +525,23 @@ export function FileManager() {
     }
   }
 
-  function onItemDragStart(e: DragEvent, item: StorageListItem) {
+  function onItemDragStart(e: DragEvent<HTMLTableRowElement>, item: StorageListItem) {
     if (!canWrite || renamingName === item.name) {
       e.preventDefault();
       return;
     }
-    const isFolder = item.id == null;
-    const payload: DragItemPayload = {
-      path: joinPath(prefix, item.name),
-      name: item.name,
-      parentPrefix: prefix,
-      kind: isFolder ? 'folder' : 'file',
-    };
-    e.dataTransfer.setData(DND_FILE_MIME, JSON.stringify(payload));
+    const payloads =
+      selection.isSelected(item) && selection.selectedCount > 0
+        ? selection.selectedItems.map((selected) => toDragPayload(selected, prefix))
+        : [toDragPayload(item, prefix)];
+    writeDragItemsPayload(e.dataTransfer, payloads);
     e.dataTransfer.effectAllowed = 'move';
-    setDraggingItem(payload);
+    setDragCountImage(e.dataTransfer, payloads);
+    setDraggingItems(payloads);
   }
 
   function onItemDragEnd() {
-    setDraggingItem(null);
+    setDraggingItems(null);
     clearDropState();
   }
 
@@ -551,14 +564,14 @@ export function FileManager() {
     await handleDropOnPrefix(e, prefix);
   }
 
-  async function confirmDeleteFile(item: StorageListItem): Promise<boolean> {
+  async function confirmDelete(description: string, title: string): Promise<boolean> {
     if (typeof window === 'undefined' || window.parent === window) {
-      return window.confirm(t('deleteConfirm', { name: item.name }));
+      return window.confirm(description);
     }
     return await new Promise<boolean>((resolve) => {
       shellui.dialog({
-        title: t('deleteConfirmTitle'),
-        description: t('deleteConfirm', { name: item.name }),
+        title,
+        description,
         mode: 'delete',
         size: 'sm',
         okLabel: t('delete'),
@@ -569,26 +582,18 @@ export function FileManager() {
     });
   }
 
+  async function confirmDeleteFile(item: StorageListItem): Promise<boolean> {
+    return confirmDelete(t('deleteConfirm', { name: item.name }), t('deleteConfirmTitle'));
+  }
+
   async function confirmDeleteFolder(
     item: StorageListItem,
     fileCount: number,
   ): Promise<boolean> {
-    const description = t('deleteFolderConfirm', { name: item.name, count: fileCount });
-    if (typeof window === 'undefined' || window.parent === window) {
-      return window.confirm(description);
-    }
-    return await new Promise<boolean>((resolve) => {
-      shellui.dialog({
-        title: t('deleteFolderConfirmTitle'),
-        description,
-        mode: 'delete',
-        size: 'sm',
-        okLabel: t('delete'),
-        cancelLabel: t('cancel'),
-        onOk: () => resolve(true),
-        onCancel: () => resolve(false),
-      });
-    });
+    return confirmDelete(
+      t('deleteFolderConfirm', { name: item.name, count: fileCount }),
+      t('deleteFolderConfirmTitle'),
+    );
   }
 
   async function handleDelete(item: StorageListItem) {
@@ -632,6 +637,50 @@ export function FileManager() {
     }
   }
 
+  async function handleDeleteSelected() {
+    const selected = selection.selectedItems;
+    if (!token || !bucket || !canWrite || selected.length === 0) return;
+    if (selected.length === 1) {
+      await handleDelete(selected[0]);
+      return;
+    }
+
+    const folderCount = selected.filter(isFolderItem).length;
+    const description =
+      folderCount > 0
+        ? t('deleteSelectedConfirmWithFolders', {
+            count: selected.length,
+            folderCount,
+          })
+        : t('deleteSelectedConfirm', { count: selected.length });
+    const confirmed = await confirmDelete(description, t('deleteSelectedTitle', { count: selected.length }));
+    if (!confirmed) return;
+
+    setBusyName('__bulk__');
+    setError(null);
+    try {
+      const files = selected.filter((item) => !isFolderItem(item));
+      const folders = selected.filter(isFolderItem);
+      if (files.length) {
+        unwrapStorage(
+          await shellui.storage.from(bucket).remove(files.map((item) => joinPath(prefix, item.name))),
+        );
+      }
+      for (const folder of folders) {
+        unwrapStorage(
+          await shellui.storage.from(bucket).removeFolder(joinPath(prefix, folder.name)),
+        );
+      }
+      selection.clear();
+      await loadObjects();
+    } catch (err) {
+      handleApiError(err);
+      await loadObjects();
+    } finally {
+      setBusyName(null);
+    }
+  }
+
   async function handleDownload(item: StorageListItem) {
     if (!token || !bucket || item.id == null) return;
     const path = joinPath(prefix, item.name);
@@ -669,19 +718,23 @@ export function FileManager() {
     );
   }
 
+  function openPermissionsFor(list: StorageListItem[]) {
+    if (!bucket || !grantsEnabled || list.length === 0) return;
+    const payload = list.map((item) => ({
+      path: joinPath(prefix, item.name),
+      resourceType: (item.id == null ? 'folder' : 'object') as 'folder' | 'object',
+    }));
+    const url = buildPermissionsModalUrl(bucket, payload);
+    const params = new URLSearchParams({ bucket });
+    for (const item of payload) {
+      params.append('path', item.path);
+      params.append('type', item.resourceType);
+    }
+    openShelluiOrHash(url, `#/permissions?${params.toString()}`);
+  }
+
   function openPermissions(item: StorageListItem) {
-    if (!bucket || !grantsEnabled) return;
-    const path = joinPath(prefix, item.name);
-    const resourceType = item.id == null ? 'folder' : 'object';
-    const url = buildPermissionsModalUrl(bucket, path, resourceType);
-    openShelluiOrHash(
-      url,
-      `#/permissions?${new URLSearchParams({
-        bucket,
-        path,
-        type: resourceType,
-      }).toString()}`,
-    );
+    openPermissionsFor([item]);
   }
 
   function openShare(item: StorageListItem) {
@@ -707,6 +760,89 @@ export function FileManager() {
         type: resourceType,
       }).toString()}`,
     );
+  }
+
+  function openItem(item: StorageListItem) {
+    if (isFolderItem(item)) openFolder(item.name);
+    else openViewer(item);
+  }
+
+  function actionsForItem(item: StorageListItem): ItemAction[] {
+    const isFolder = isFolderItem(item);
+    const renaming = renamingName === item.name && renamingIsFolder === isFolder;
+    const actions: ItemAction[] = [];
+    if (isFolder) {
+      actions.push({
+        key: 'open',
+        label: t('open'),
+        icon: <FolderOpen className="h-4 w-4" />,
+        onClick: () => openFolder(item.name),
+      });
+      if (canWrite) {
+        actions.push({
+          key: 'move',
+          label: t('moveFolder'),
+          icon: <FolderInput className="h-4 w-4" />,
+          onClick: () => openMove(item),
+        });
+      }
+    } else {
+      actions.push({
+        key: 'view',
+        label: t('view'),
+        icon: <Eye className="h-4 w-4" />,
+        onClick: () => openViewer(item),
+      });
+      actions.push({
+        key: 'download',
+        label: t('download'),
+        icon: <Download className="h-4 w-4" />,
+        onClick: () => void handleDownload(item),
+      });
+      if (shareable) {
+        actions.push({
+          key: 'share',
+          label: t('share'),
+          icon: <Link2 className="h-4 w-4" />,
+          onClick: () => openShare(item),
+        });
+      }
+      if (canWrite) {
+        actions.push({
+          key: 'move',
+          label: t('moveFile'),
+          icon: <FolderInput className="h-4 w-4" />,
+          onClick: () => openMove(item),
+        });
+      }
+    }
+    if (canWrite) {
+      actions.push({
+        key: 'rename',
+        label: isFolder ? t('renameFolder') : t('renameFile'),
+        icon: <Pencil className="h-4 w-4" />,
+        onClick: () => startRename(item.name, isFolder),
+        disabled: renaming,
+      });
+    }
+    if (grantsEnabled) {
+      actions.push({
+        key: 'permissions',
+        label: t('permissions'),
+        icon: <Shield className="h-4 w-4" />,
+        onClick: () => openPermissions(item),
+      });
+    }
+    if (canWrite) {
+      actions.push({
+        key: 'delete',
+        label: isFolder ? t('deleteFolder') : t('delete'),
+        icon: <Trash2 className="h-4 w-4" />,
+        onClick: () => void handleDelete(item),
+        destructive: true,
+      });
+    }
+    return actions;
   }
 
   if (!token) {
@@ -854,9 +990,7 @@ export function FileManager() {
             {crumbs.map((crumb, index) => {
               const crumbKey = dropTargetKey('crumb', crumb.path);
               const crumbActive = dropTarget === crumbKey;
-              const crumbAccepts =
-                canWrite &&
-                (!draggingItem || canMoveToPrefix(draggingItem, crumb.path));
+              const crumbAccepts = canWrite && isValidDestForDrag(crumb.path);
               return (
                 <span
                   key={crumb.path || 'root'}
@@ -906,278 +1040,118 @@ export function FileManager() {
             ) : null}
           </nav>
 
-          <div
-            className={`relative min-h-0 flex-1 overflow-auto p-2 transition-colors ${
-              dropTarget === dropTargetKey('current', prefix) ? dropHighlightClass : ''
-            }`}
+          <div className="relative min-h-0 flex-1">
+            <div
+              className={`h-full min-h-0 overflow-auto p-2 transition-colors ${
+                selection.selectedCount > 0 ? 'pb-16' : ''
+              } ${
+                dropTarget === dropTargetKey('current', prefix) ? dropHighlightClass : ''
+              }`}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) selection.clear();
+            }}
             onDragOver={canWrite ? onListDragOver : undefined}
             onDragLeave={canWrite ? onListDragLeave : undefined}
             onDrop={canWrite ? (e) => void onListDrop(e) : undefined}
           >
-            {loading ? (
-              <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {t('loading')}
-              </div>
-            ) : !bucket ? (
+            {!bucket ? (
               <p className="p-4 text-sm text-muted-foreground">{t('emptyBuckets')}</p>
-            ) : items.length === 0 ? (
-              <div className="flex min-h-[12rem] flex-col items-center justify-center gap-2 p-6 text-center">
-                <Upload className="h-8 w-8 text-muted-foreground/70" aria-hidden />
-                <p className="text-sm text-muted-foreground">{t('emptyBucket')}</p>
-                {canWrite ? (
-                  <p className="text-xs text-muted-foreground">{t('dropUploadHint')}</p>
-                ) : null}
-              </div>
             ) : (
-              <table className="w-full text-left text-sm">
-                <thead className="text-xs uppercase text-muted-foreground">
-                  <tr className="border-b border-border">
-                    <th className="w-full max-w-0 px-3 py-2 font-medium">{t('name')}</th>
-                    <th className="hidden whitespace-nowrap px-3 py-2 font-medium lg:table-cell">
-                      {t('access')}
-                    </th>
-                    <th className="hidden whitespace-nowrap px-3 py-2 font-medium xl:table-cell">
-                      {t('type')}
-                    </th>
-                    <th className="hidden whitespace-nowrap px-3 py-2 font-medium md:table-cell">
-                      {t('size')}
-                    </th>
-                    <th className="hidden whitespace-nowrap px-3 py-2 font-medium lg:table-cell">
-                      {t('modified')}
-                    </th>
-                    <th className="whitespace-nowrap px-2 py-2 text-right font-medium 2xl:px-3">
-                      <span className="sr-only 2xl:not-sr-only">{t('actions')}</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item) => {
-                    const isFolder = item.id == null;
-                    const path = joinPath(prefix, item.name);
-                    const busy = busyName === path;
-                    const renaming =
-                      renamingName === item.name && renamingIsFolder === isFolder;
-                    const actions: ItemAction[] = [];
-                    if (isFolder) {
-                      actions.push({
-                        key: 'open',
-                        label: t('open'),
-                        icon: <FolderOpen className="h-4 w-4" />,
-                        onClick: () => openFolder(item.name),
-                      });
-                      if (canWrite) {
-                        actions.push({
-                          key: 'move',
-                          label: t('moveFolder'),
-                          icon: <FolderInput className="h-4 w-4" />,
-                          onClick: () => openMove(item),
-                        });
+              <FileList
+                items={items}
+                prefix={prefix}
+                loading={loading}
+                selection={selection}
+                onOpen={openItem}
+                busyName={busyName}
+                renamingName={renamingName}
+                renamingIsFolder={renamingIsFolder}
+                accessFallbackAudience={selectedBucket?.access?.audience}
+                accessFallbackDescription={selectedBucket?.access?.description}
+                empty={
+                  <div className="flex min-h-[12rem] flex-col items-center justify-center gap-2 p-6 text-center">
+                    <Upload className="h-8 w-8 text-muted-foreground/70" aria-hidden />
+                    <p className="text-sm text-muted-foreground">{t('emptyBucket')}</p>
+                    {canWrite ? (
+                      <p className="text-xs text-muted-foreground">{t('dropUploadHint')}</p>
+                    ) : null}
+                  </div>
+                }
+                dnd={
+                  canWrite
+                    ? {
+                        enabled: true,
+                        draggingItems,
+                        dropTarget,
+                        onItemDragStart,
+                        onItemDragEnd,
+                        onFolderDragOver: (e, folderPath) => {
+                          onDropTargetOver(e, dropTargetKey('folder', folderPath), folderPath);
+                        },
+                        onFolderDragLeave: (e, folderPath) => {
+                          onDropTargetLeave(e, dropTargetKey('folder', folderPath));
+                        },
+                        onFolderDrop: (e, folderPath) => {
+                          void handleDropOnPrefix(e, folderPath);
+                        },
                       }
-                    } else {
-                      actions.push({
-                        key: 'view',
-                        label: t('view'),
-                        icon: <Eye className="h-4 w-4" />,
-                        onClick: () => openViewer(item),
-                      });
-                      actions.push({
-                        key: 'download',
-                        label: t('download'),
-                        icon: <Download className="h-4 w-4" />,
-                        onClick: () => void handleDownload(item),
-                      });
-                      if (shareable) {
-                        actions.push({
-                          key: 'share',
-                          label: t('share'),
-                          icon: <Link2 className="h-4 w-4" />,
-                          onClick: () => openShare(item),
-                        });
-                      }
-                      if (canWrite) {
-                        actions.push({
-                          key: 'move',
-                          label: t('moveFile'),
-                          icon: <FolderInput className="h-4 w-4" />,
-                          onClick: () => openMove(item),
-                        });
-                      }
-                    }
-                    if (canWrite) {
-                      actions.push({
-                        key: 'rename',
-                        label: isFolder ? t('renameFolder') : t('renameFile'),
-                        icon: <Pencil className="h-4 w-4" />,
-                        onClick: () => startRename(item.name, isFolder),
-                        disabled: renaming,
-                      });
-                    }
-                    if (grantsEnabled) {
-                      actions.push({
-                        key: 'permissions',
-                        label: t('permissions'),
-                        icon: <Shield className="h-4 w-4" />,
-                        onClick: () => openPermissions(item),
-                      });
-                    }
-                    if (canWrite) {
-                      actions.push({
-                        key: 'delete',
-                        label: isFolder ? t('deleteFolder') : t('delete'),
-                        icon: <Trash2 className="h-4 w-4" />,
-                        onClick: () => void handleDelete(item),
-                        destructive: true,
-                      });
-                    }
-                    return (
-                      <tr
-                        key={`${isFolder ? 'dir' : 'file'}:${item.name}`}
-                        className={`border-b border-border/70 ${
-                          isFolder &&
-                          dropTarget === dropTargetKey('folder', path) &&
-                          draggingItem?.path !== path
-                            ? dropHighlightClass
-                            : ''
-                        } ${
-                          draggingItem?.path === path ? 'opacity-50' : ''
-                        } ${
-                          canWrite && !renaming
-                            ? 'cursor-grab active:cursor-grabbing'
-                            : ''
-                        }`}
-                        draggable={canWrite && !renaming}
-                        onDragStart={
-                          canWrite ? (e) => onItemDragStart(e, item) : undefined
-                        }
-                        onDragEnd={canWrite ? onItemDragEnd : undefined}
-                        onDragOver={
-                          canWrite && isFolder
-                            ? (e) => {
-                                e.stopPropagation();
-                                onDropTargetOver(
-                                  e,
-                                  dropTargetKey('folder', path),
-                                  path,
-                                );
-                              }
-                            : undefined
-                        }
-                        onDragLeave={
-                          canWrite && isFolder
-                            ? (e) =>
-                                onDropTargetLeave(e, dropTargetKey('folder', path))
-                            : undefined
-                        }
-                        onDrop={
-                          canWrite && isFolder
-                            ? (e) => {
-                                e.stopPropagation();
-                                void handleDropOnPrefix(e, path);
-                              }
-                            : undefined
-                        }
-                      >
-                        <td className="max-w-0 w-full px-3 py-2">
-                          {renaming ? (
-                            <div className="flex min-w-0 flex-wrap items-center gap-2">
-                              {isFolder ? (
-                                <Folder className="h-4 w-4 shrink-0 text-primary" />
-                              ) : (
-                                <FileIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                              )}
-                              <input
-                                className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1 text-sm"
-                                value={renameValue}
-                                onChange={(e) => setRenameValue(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') void handleRename();
-                                  if (e.key === 'Escape') cancelRename();
-                                }}
-                                autoFocus
-                                disabled={busy}
-                              />
-                              <button
-                                type="button"
-                                className="rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground disabled:opacity-50"
-                                onClick={() => void handleRename()}
-                                disabled={busy}
-                              >
-                                {t('renameSave')}
-                              </button>
-                              <button
-                                type="button"
-                                className="rounded-md border border-border px-2 py-1 text-xs"
-                                onClick={cancelRename}
-                                disabled={busy}
-                              >
-                                {t('cancel')}
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              className="flex w-full min-w-0 items-center gap-2 text-left hover:underline"
-                              title={item.name}
-                              onClick={() => {
-                                if (isFolder) openFolder(item.name);
-                                else openViewer(item);
-                              }}
-                            >
-                              {isFolder ? (
-                                <Folder className="h-4 w-4 shrink-0 text-primary" />
-                              ) : (
-                                <FileIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                              )}
-                              <span className="truncate">{item.name}</span>
-                            </button>
-                          )}
-                        </td>
-                        <td className="hidden whitespace-nowrap px-3 py-2 text-muted-foreground lg:table-cell">
-                          <span
-                            title={
-                              item.access?.description ||
-                              selectedBucket?.access?.description
-                            }
-                          >
-                            {accessRowLabel(
-                              item.access,
-                              selectedBucket?.access?.audience,
-                              t,
-                            )}
-                          </span>
-                        </td>
-                        <td className="hidden max-w-[14rem] truncate px-3 py-2 text-muted-foreground xl:table-cell">
-                          <span
-                            className="block truncate"
-                            title={
-                              isFolder
-                                ? t('folder')
-                                : item.metadata?.mimetype || t('file')
-                            }
-                          >
-                            {isFolder ? t('folder') : item.metadata?.mimetype || t('file')}
-                          </span>
-                        </td>
-                        <td className="hidden whitespace-nowrap px-3 py-2 text-muted-foreground md:table-cell">
-                          {isFolder ? '—' : formatBytes(item.metadata?.size)}
-                        </td>
-                        <td className="hidden whitespace-nowrap px-3 py-2 text-muted-foreground lg:table-cell">
-                          {item.updated_at
-                            ? new Date(item.updated_at).toLocaleString()
-                            : item.metadata?.lastModified
-                              ? new Date(item.metadata.lastModified).toLocaleString()
-                              : '—'}
-                        </td>
-                        <td className="whitespace-nowrap px-2 py-2 align-middle 2xl:px-3">
-                          <ItemActions actions={actions} busy={busy} />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    : undefined
+                }
+                renderName={(_item, ctx) => (
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    {ctx.isFolder ? (
+                      <Folder className="h-4 w-4 shrink-0 text-primary" />
+                    ) : (
+                      <FileIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    )}
+                    <input
+                      className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') void handleRename();
+                        if (e.key === 'Escape') cancelRename();
+                      }}
+                      autoFocus
+                      disabled={ctx.busy}
+                    />
+                    <button
+                      type="button"
+                      className="rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground disabled:opacity-50"
+                      onClick={() => void handleRename()}
+                      disabled={ctx.busy}
+                    >
+                      {t('renameSave')}
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-md border border-border px-2 py-1 text-xs"
+                      onClick={cancelRename}
+                      disabled={ctx.busy}
+                    >
+                      {t('cancel')}
+                    </button>
+                  </div>
+                )}
+                renderActions={(item, ctx) => (
+                  <ItemActions actions={actionsForItem(item)} busy={ctx.busy} />
+                )}
+              />
             )}
+          </div>
+          <SelectionToolbar
+            count={selection.selectedCount}
+            canWrite={canWrite}
+            grantsEnabled={grantsEnabled}
+            busy={busyName === '__bulk__'}
+            onClear={selection.clear}
+            onDelete={canWrite ? () => void handleDeleteSelected() : undefined}
+            onPermissions={
+              grantsEnabled
+                ? () => openPermissionsFor(selection.selectedItems)
+                : undefined
+            }
+          />
           </div>
         </main>
       </div>
