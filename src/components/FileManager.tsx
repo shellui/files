@@ -984,9 +984,10 @@ export function FileManager() {
 
         <main className="flex min-w-0 flex-1 flex-col">
           <nav
-            className="flex flex-wrap items-center gap-1 border-b border-border px-4 py-2 text-sm"
+            className="flex h-10 shrink-0 items-center gap-1 overflow-hidden border-b border-border px-4 text-sm"
             aria-label={t('breadcrumb')}
           >
+            <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
             {crumbs.map((crumb, index) => {
               const crumbKey = dropTargetKey('crumb', crumb.path);
               const crumbActive = dropTarget === crumbKey;
@@ -1030,23 +1031,37 @@ export function FileManager() {
                 </span>
               );
             })}
-            {selectedBucket?.access ? (
-              <span
-                className="ml-auto rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground"
-                title={selectedBucket.access.description}
-              >
-                {t(accessLabelKey(selectedBucket.access.audience))}
-              </span>
-            ) : null}
+            </div>
+            <div className="ml-auto flex h-7 shrink-0 items-center">
+              {selection.selectedCount > 0 ? (
+                <SelectionToolbar
+                  count={selection.selectedCount}
+                  canWrite={canWrite}
+                  grantsEnabled={grantsEnabled}
+                  busy={busyName === '__bulk__'}
+                  onClear={selection.clear}
+                  onDelete={canWrite ? () => void handleDeleteSelected() : undefined}
+                  onPermissions={
+                    grantsEnabled
+                      ? () => openPermissionsFor(selection.selectedItems)
+                      : undefined
+                  }
+                />
+              ) : selectedBucket?.access ? (
+                <span
+                  className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground"
+                  title={selectedBucket.access.description}
+                >
+                  {t(accessLabelKey(selectedBucket.access.audience))}
+                </span>
+              ) : null}
+            </div>
           </nav>
 
-          <div className="relative min-h-0 flex-1">
-            <div
-              className={`h-full min-h-0 overflow-auto p-2 transition-colors ${
-                selection.selectedCount > 0 ? 'pb-16' : ''
-              } ${
-                dropTarget === dropTargetKey('current', prefix) ? dropHighlightClass : ''
-              }`}
+          <div
+            className={`relative min-h-0 flex-1 overflow-auto p-2 transition-colors ${
+              dropTarget === dropTargetKey('current', prefix) ? dropHighlightClass : ''
+            }`}
             onClick={(e) => {
               if (e.target === e.currentTarget) selection.clear();
             }}
@@ -1138,20 +1153,6 @@ export function FileManager() {
                 )}
               />
             )}
-          </div>
-          <SelectionToolbar
-            count={selection.selectedCount}
-            canWrite={canWrite}
-            grantsEnabled={grantsEnabled}
-            busy={busyName === '__bulk__'}
-            onClear={selection.clear}
-            onDelete={canWrite ? () => void handleDeleteSelected() : undefined}
-            onPermissions={
-              grantsEnabled
-                ? () => openPermissionsFor(selection.selectedItems)
-                : undefined
-            }
-          />
           </div>
         </main>
       </div>

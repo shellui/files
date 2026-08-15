@@ -141,3 +141,22 @@ body {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+/* File list rows: theme tokens (hex/oklch) don't work with Tailwind /opacity. */
+.file-list-row > td,
+.file-list-row > th {
+  border-bottom: 1px solid var(--border);
+  background-color: transparent;
+}
+
+.file-list-row:hover:not(.file-list-row-selected):not(.file-list-row-drop) > td {
+  background-color: var(--muted);
+}
+
+.file-list-row-selected > td {
+  background-color: color-mix(in srgb, var(--primary) 12%, var(--background));
+}
+
+.file-list-row-drop > td {
+  background-color: color-mix(in srgb, var(--primary) 10%, var(--background));
+}

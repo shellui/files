@@ -10,9 +10,6 @@ import type { StorageListItem } from '@/lib/storageApi';
 
 /** Used on breadcrumbs and the listing pane (not table rows). */
 export const dropHighlightClass = 'bg-primary/10 ring-1 ring-inset ring-primary/35';
-/** Backgrounds on `<td>` — collapsed tables paint row box-shadow on the next row. */
-const dropRowClass = 'bg-primary/10 [&>td]:bg-primary/10';
-const selectedRowClass = 'bg-primary/15 [&>td]:bg-primary/15';
 
 export type FileListColumns = {
   access?: boolean;
@@ -117,7 +114,7 @@ export function FileList({
       aria-multiselectable={canSelect}
     >
       <thead className="text-xs uppercase text-muted-foreground">
-        <tr className="[&>th]:border-b [&>th]:border-border">
+        <tr className="file-list-row">
           {canSelect ? (
             <th className="w-10 px-2 py-2 align-middle font-medium">
               {selection.mode === 'multiple' ? (
@@ -188,11 +185,11 @@ export function FileList({
             <tr
               key={fileItemKey(item)}
               aria-selected={selected}
-              className={`[&>td]:border-b [&>td]:border-border/70 ${
-                selected ? selectedRowClass : 'hover:bg-muted/60 [&>td]:hover:bg-muted/60'
-              } ${folderDropActive ? dropRowClass : ''} ${
-                rowDragging ? 'opacity-50' : ''
-              } ${canDrag ? 'cursor-grab active:cursor-grabbing' : canSelect ? 'cursor-pointer' : ''}`}
+              className={`file-list-row ${selected ? 'file-list-row-selected' : ''} ${
+                folderDropActive ? 'file-list-row-drop' : ''
+              } ${rowDragging ? 'opacity-50' : ''} ${
+                canDrag ? 'cursor-grab active:cursor-grabbing' : canSelect ? 'cursor-pointer' : ''
+              }`}
               draggable={canDrag}
               onClick={(e) => {
                 if (!canSelect || suppressClickRef.current) return;
@@ -278,7 +275,7 @@ export function FileList({
                 ) : (
                   <button
                     type="button"
-                    className={`flex w-full min-w-0 items-center gap-2 text-left hover:underline ${
+                    className={`flex w-full min-w-0 items-center gap-2 text-left ${
                       selected ? 'font-medium' : ''
                     }`}
                     title={item.name}
