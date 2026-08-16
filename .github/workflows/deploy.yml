@@ -1,0 +1,73 @@
+name: Build and deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'pages'
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout files app
+        uses: actions/checkout@v4
+        with:
+          path: files
+
+      # Linked dependency: files/package.json uses file:../shellui/packages/sdk
+      - name: Checkout ShellUI monorepo
+        uses: actions/checkout@v4
+        with:
+          repository: shellui/shellui
+          path: shellui
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          # Repo is checked out under `files/`; action default package.json is workspace root
+          package_json_file: files/package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'files/.nvmrc'
+          cache: 'pnpm'
+          cache-dependency-path: files/pnpm-lock.yaml
+
+      - name: Build @shellui/sdk
+        run: pnpm -C shellui install --frozen-lockfile && pnpm -C shellui run build:sdk
+
+      - name: Install dependencies
+        working-directory: files
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        working-directory: files
+        run: pnpm build
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./files/dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

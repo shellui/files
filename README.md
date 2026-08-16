@@ -43,3 +43,18 @@ storage: {
 Admin sidebar → **Storage** → **Files**. ShellUI shares the session JWT with `storage.filesUrl`. Preview, permissions, share-link, move, and **storage picker** UIs open in the ShellUI modal via hash routes on the same origin (`#/viewer`, `#/permissions`, `#/share`, `#/move`, `#/select`). File explorer operations use `shellui.storage` (messages to the shell); share-link downloads are served by storage-service at `/storage/v1/share/link/{token}` (no JWT). See storage-service [access](../storage-service/docs/access.md) and [sharing](../storage-service/docs/sharing.md) docs.
 
 Apps inside ShellUI open the picker with `shellui.selectFolders()` / `shellui.selectFiles()` — the host loads this app at `#/select`.
+
+## Production
+
+Production deploy (GitHub Pages) outputs the site at the **root** of the domain (**https://files.shellui.com/**). Set the host’s `storage.filesUrl` to that origin.
+
+## Structure
+
+| Path      | Role                                                                         |
+| --------- | ---------------------------------------------------------------------------- |
+| `src/`    | Vite + React source                                                          |
+| `public/` | Static files copied to `dist/` (including `CNAME` for **files.shellui.com**) |
+
+## License
+
+MIT
