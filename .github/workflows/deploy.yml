@@ -21,25 +21,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout files app
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: files
 
       # Linked dependency: files/package.json uses file:../shellui/packages/sdk
       - name: Checkout ShellUI monorepo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: shellui/shellui
           path: shellui
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           # Repo is checked out under `files/`; action default package.json is workspace root
           package_json_file: files/package.json
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: 'files/.nvmrc'
           cache: 'pnpm'
@@ -57,7 +57,7 @@ jobs:
         run: pnpm build
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: ./files/dist
 
@@ -70,4 +70,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
