@@ -1,3 +1,5 @@
+import { shellui } from '@shellui/sdk';
+
 export type BucketAccess = {
   audience: 'company' | 'owner' | 'connector' | 'restricted' | 'limited';
   readers: string;
@@ -126,8 +128,15 @@ export function isStorageAccessDenied(err: unknown): boolean {
   return errorStatus(err) === 403;
 }
 
+/** storage-service base URL from host `storage.url` after `shellui.init()`. */
 function storageBaseUrl(): string {
-  return (import.meta.env.VITE_STORAGE_URL || 'http://localhost:8001').replace(/\/$/, '');
+  const url = shellui.initialSettings?.storage?.url?.trim().replace(/\/+$/, '') ?? '';
+  if (!url) {
+    throw new Error(
+      'Storage URL is not set. Configure storage.url in the host ShellUI app (shellui.config.ts).',
+    );
+  }
+  return url;
 }
 
 async function parseError(response: Response): Promise<StorageApiError> {

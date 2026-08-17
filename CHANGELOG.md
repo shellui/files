@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 See for sample https://raw.githubusercontent.com/favoloso/conventional-changelog-emoji/master/CHANGELOG.md
 -->
 
+## [0.1.1] - 2026-08-17
+
+### 🐛 Bug Fixes
+
+- **Storage URL:** access grants and share links use host `storage.url` from SDK settings after `shellui.init()`. Removed the `VITE_STORAGE_URL` / `localhost:8001` fallback so the app never calls a hard-coded origin.
+
 ## [0.1.0] - 2026-08-16
 
 ### ✨ Feature

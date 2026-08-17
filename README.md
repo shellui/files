@@ -15,11 +15,11 @@ ShellUI file manager — a small React app embedded in the **administration** if
 ## Local setup
 
 ```bash
-cp .env.example .env
-# VITE_STORAGE_URL=http://localhost:8001
 pnpm install
 pnpm start   # http://localhost:5175
 ```
+
+Storage-service origin is **not** set via env. After `shellui.init()`, this app reads `storage.url` from SDK settings (host `storage` in `shellui.config.ts`).
 
 Also run:
 
