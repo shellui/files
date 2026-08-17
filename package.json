@@ -1,7 +1,6 @@
 {
   "name": "shellui-files",
   "version": "0.1.1",
-  "private": true,
   "description": "ShellUI file manager — embedded in the admin panel; file ops go through @shellui/sdk",
   "type": "module",
   "scripts": {
