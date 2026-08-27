@@ -1,6 +1,6 @@
 # files
 
-ShellUI file manager — a small React app embedded in the **administration** iframe. File upload, download, list, move, and rename go through `@shellui/sdk` (`shellui.storage`); the root shell executes them against [storage-service](../storage-service) using `storage.url`. Access grants and share links still call storage-service directly with the session JWT.
+Shellui file manager — a small React app embedded in the **administration** iframe. File upload, download, list, move, and rename go through `@shellui/sdk` (`shellui.storage`); the root shell executes them against [storage-service](../storage-service) using `storage.url`. Access grants and share links still call storage-service directly with the session JWT.
 
 ## Features
 
@@ -8,8 +8,8 @@ ShellUI file manager — a small React app embedded in the **administration** if
 - Nested folders, upload / download / rename / delete (gated by `access.can_write`)
 - **Path access grants** — manage folder/file permissions (allow/deny for users or the whole company)
 - **Public share links** — capability URLs with expiry and/or download limits; anonymous redeem on storage-service
-- Theme synced from ShellUI (`appearance`)
-- i18n (`en` / `fr`) synced from ShellUI language settings
+- Theme synced from Shellui (`appearance`)
+- i18n (`en` / `fr`) synced from Shellui language settings
 - Auth via `SHELLUI_SETTINGS.accessToken` (Bearer JWT)
 
 ## Local setup
@@ -25,7 +25,7 @@ Also run:
 
 | Service | Port |
 |---------|------|
-| ShellUI | 4000 |
+| Shellui | 4000 |
 | identity-service | 8000 |
 | admin | 5174 |
 | storage-service | 8001 |
@@ -40,9 +40,9 @@ storage: {
 },
 ```
 
-Admin sidebar → **Storage** → **Files**. ShellUI shares the session JWT with `storage.filesUrl`. Preview, permissions, share-link, move, and **storage picker** UIs open in the ShellUI modal via hash routes on the same origin (`#/viewer`, `#/permissions`, `#/share`, `#/move`, `#/select`). File explorer operations use `shellui.storage` (messages to the shell); share-link downloads are served by storage-service at `/storage/v1/share/link/{token}` (no JWT). See storage-service [access](../storage-service/docs/access.md) and [sharing](../storage-service/docs/sharing.md) docs.
+Admin sidebar → **Storage** → **Files**. Shellui shares the session JWT with `storage.filesUrl`. Preview, permissions, share-link, move, and **storage picker** UIs open in the Shellui modal via hash routes on the same origin (`#/viewer`, `#/permissions`, `#/share`, `#/move`, `#/select`). File explorer operations use `shellui.storage` (messages to the shell); share-link downloads are served by storage-service at `/storage/v1/share/link/{token}` (no JWT). See storage-service [access](../storage-service/docs/access.md) and [sharing](../storage-service/docs/sharing.md) docs.
 
-Apps inside ShellUI open the picker with `shellui.selectFolders()` / `shellui.selectFiles()` — the host loads this app at `#/select`.
+Apps inside Shellui open the picker with `shellui.selectFolders()` / `shellui.selectFiles()` — the host loads this app at `#/select`.
 
 ## Production
 

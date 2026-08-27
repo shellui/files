@@ -36,4 +36,4 @@ See for sample https://raw.githubusercontent.com/favoloso/conventional-changelog
 - **Public share links:** capability URLs with expiry and/or download limits; anonymous redeem on storage-service
 - **Shell modal routes:** preview, permissions, share-link, move, and storage picker UIs via hash routes (`#/viewer`, `#/permissions`, `#/share`, `#/move`, `#/select`)
 - **Storage picker:** host apps open folder/file selection with `shellui.selectFolders()` / `shellui.selectFiles()`
-- **Theme & i18n:** appearance and language (`en` / `fr`) synced from ShellUI; auth via session JWT
+- **Theme & i18n:** appearance and language (`en` / `fr`) synced from Shellui; auth via session JWT
