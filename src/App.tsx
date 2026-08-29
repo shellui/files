@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
+import { Route, Routes } from 'react-router-dom';
 import { FileManager } from '@/components/FileManager';
 import { MoveFilePage } from '@/components/MoveFilePage';
 import { PermissionsPage } from '@/components/PermissionsPage';
 import { ShareLinkPage } from '@/components/ShareLinkPage';
 import { ViewerPage } from '@/components/ViewerPage';
+import { StoragePickerPage } from '@/components/StoragePickerPage';
 import { isMoveHash, isPermissionsHash, isSelectHash, isShareHash } from '@/lib/modalRoutes';
 import { isViewerHash } from '@/lib/viewerRoute';
-import { StoragePickerPage } from '@/components/StoragePickerPage';
 
 type AppMode = 'manager' | 'viewer' | 'permissions' | 'share' | 'move' | 'select';
 
@@ -33,5 +34,21 @@ export function App() {
   if (mode === 'share') return <ShareLinkPage />;
   if (mode === 'move') return <MoveFilePage />;
   if (mode === 'select') return <StoragePickerPage />;
-  return <FileManager />;
+
+  return (
+    <Routes>
+      <Route
+        path="/"
+        element={<FileManager />}
+      />
+      <Route
+        path="/:bucket"
+        element={<FileManager />}
+      />
+      <Route
+        path="/:bucket/*"
+        element={<FileManager />}
+      />
+    </Routes>
+  );
 }

@@ -1,5 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 import { shellui } from '@shellui/sdk';
 import { LangProvider, getLangFromSettings } from '@/contexts/LangContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
@@ -31,11 +32,13 @@ async function bootstrap() {
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <ThemeProvider initialAppearance={initialTheme}>
-        <LangProvider>
-          <App />
-        </LangProvider>
-      </ThemeProvider>
+      <BrowserRouter>
+        <ThemeProvider initialAppearance={initialTheme}>
+          <LangProvider>
+            <App />
+          </LangProvider>
+        </ThemeProvider>
+      </BrowserRouter>
     </StrictMode>,
   );
 }

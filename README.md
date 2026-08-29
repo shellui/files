@@ -40,7 +40,7 @@ storage: {
 },
 ```
 
-Admin sidebar → **Storage** → **Files**. Shellui shares the session JWT with `storage.filesUrl`. Preview, permissions, share-link, move, and **storage picker** UIs open in the Shellui modal via hash routes on the same origin (`#/viewer`, `#/permissions`, `#/share`, `#/move`, `#/select`). File explorer operations use `shellui.storage` (messages to the shell); share-link downloads are served by storage-service at `/storage/v1/share/link/{token}` (no JWT). See storage-service [access](../storage-service/docs/access.md) and [sharing](../storage-service/docs/sharing.md) docs.
+Admin sidebar → **Storage** → **Files**. Shellui shares the session JWT with `storage.filesUrl`. The explorer syncs the current location to `/{bucket}` or `/{bucket}/{folderId}` (stable folder UUID, mirrored on the Admin chrome URL) so refresh survives renames. Preview, permissions, share-link, move, and **storage picker** UIs open in the Shellui modal via hash routes on the same origin (`#/viewer`, `#/permissions`, `#/share`, `#/move`, `#/select`). File explorer operations use `shellui.storage` (messages to the shell); share-link downloads are served by storage-service at `/storage/v1/share/link/{token}` (no JWT). See storage-service [access](../storage-service/docs/access.md) and [sharing](../storage-service/docs/sharing.md) docs.
 
 Apps inside Shellui open the picker with `shellui.selectFolders()` / `shellui.selectFiles()` — the host loads this app at `#/select`.
 

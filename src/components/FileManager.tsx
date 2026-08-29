@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate, useParams } from 'react-router-dom';
 import { shellui } from '@shellui/sdk';
 import {
   ChevronRight,
@@ -35,6 +36,7 @@ import {
   writeDragItemsPayload,
   type DragItemPayload,
 } from '@/lib/dnd';
+import { buildBrowsePath, isBrowseFolderId, parseBrowseRest, parseLegacyBrowseSearch, resolveFolderIdForPath } from '@/lib/browseRoute';
 import { isFolderItem, toDragPayload } from '@/lib/fileSelection';
 import { subscribeFilesListChanged } from '@/lib/filesEvents';
 import { isValidFileName, isValidFolderName, joinPath } from '@/lib/format';
@@ -56,11 +58,17 @@ import { buildViewerModalUrl } from '@/lib/viewerRoute';
 export function FileManager() {
   const { t } = useTranslation();
   const { token, sessionExpired } = useShelluiAccessSession();
+  const navigate = useNavigate();
+  const params = useParams();
+  const bucket = params.bucket ?? '';
+  const { folderId: folderIdFromRoute, legacyPath } = parseBrowseRest(params['*']);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [buckets, setBuckets] = useState<Bucket[]>([]);
-  const [bucket, setBucket] = useState<string>('');
+  /** Storage list prefix resolved from the folder id in the URL. */
   const [prefix, setPrefix] = useState('');
+  /** False until the URL folder id (or root) has been resolved to a prefix. */
+  const [locationReady, setLocationReady] = useState(false);
   const [items, setItems] = useState<StorageListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,9 +115,37 @@ export function FileManager() {
 
   const clearSessionData = useCallback(() => {
     setBuckets([]);
-    setBucket('');
     setItems([]);
   }, []);
+
+  const goTo = useCallback(
+    (nextBucket: string, nextFolderId: string | null, replace = false) => {
+      if (!nextBucket) return;
+      const to = buildBrowsePath(nextBucket, nextFolderId);
+      if (window.location.pathname === to) return;
+      navigate(to, { replace });
+    },
+    [navigate],
+  );
+
+  /** Navigate to a folder path by resolving/ensuring its stable id. */
+  const goToFolderPath = useCallback(
+    async (nextBucket: string, folderPath: string, replace = false) => {
+      if (!nextBucket) return;
+      const normalized = folderPath.replace(/^\/+|\/+$/g, '');
+      if (!normalized) {
+        goTo(nextBucket, null, replace);
+        return;
+      }
+      const id = await resolveFolderIdForPath(nextBucket, normalized);
+      if (id) {
+        goTo(nextBucket, id, replace);
+        return;
+      }
+      setError(t('error'));
+    },
+    [goTo, t],
+  );
 
   function openShelluiOrHash(url: string, hash: string) {
     if (typeof window !== 'undefined' && window.parent !== window) {
@@ -138,24 +174,120 @@ export function FileManager() {
   const loadBuckets = useCallback(async () => {
     if (!token) {
       setBuckets([]);
-      setBucket('');
       return;
     }
     try {
       const list = unwrapStorage(await shellui.storage.listBuckets()) as Bucket[];
       setBuckets(list);
-      setBucket((current) => {
-        if (current && list.some((b) => b.name === current)) return current;
-        return pickDefaultBucket(list);
-      });
+
+      if (bucket && list.some((b) => b.name === bucket)) {
+        setError(null);
+        return;
+      }
+
+      const fallback = pickDefaultBucket(list);
+      if (fallback) {
+        goTo(fallback, null, true);
+      }
       setError(null);
     } catch (err) {
       handleApiError(err);
     }
-  }, [token, handleApiError]);
+  }, [token, bucket, goTo, handleApiError]);
+
+  // Migrate legacy query / path URLs → `/{bucket}/{folderId}`.
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+
+    async function migrateLegacy() {
+      const legacySearch = parseLegacyBrowseSearch();
+      if (legacySearch) {
+        const id = legacySearch.path
+          ? await resolveFolderIdForPath(legacySearch.bucket, legacySearch.path)
+          : null;
+        if (cancelled) return;
+        goTo(legacySearch.bucket, id, true);
+        return;
+      }
+      if (bucket && legacyPath) {
+        const id = await resolveFolderIdForPath(bucket, legacyPath);
+        if (cancelled) return;
+        goTo(bucket, id, true);
+      }
+    }
+
+    if (legacyPath || parseLegacyBrowseSearch()) {
+      setLocationReady(false);
+      void migrateLegacy();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, bucket, legacyPath, goTo]);
+
+  // Resolve folder id → storage prefix for listing.
+  useEffect(() => {
+    if (!token || !bucket) {
+      setLocationReady(false);
+      return;
+    }
+    if (legacyPath || parseLegacyBrowseSearch()) {
+      setLocationReady(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function resolvePrefix() {
+      setLocationReady(false);
+      if (!folderIdFromRoute) {
+        setPrefix('');
+        if (!cancelled) setLocationReady(true);
+        return;
+      }
+      setLoading(true);
+      try {
+        const resolved = unwrapStorage(await shellui.storage.get(folderIdFromRoute));
+        if (cancelled) return;
+        if (resolved.type !== 'folder') {
+          const parent = resolved.path.includes('/')
+            ? resolved.path.slice(0, resolved.path.lastIndexOf('/'))
+            : '';
+          if (parent) {
+            const parentId = await resolveFolderIdForPath(resolved.bucket, parent);
+            if (cancelled) return;
+            goTo(resolved.bucket, parentId, true);
+            return;
+          }
+          goTo(resolved.bucket, null, true);
+          return;
+        }
+        if (resolved.bucket !== bucket) {
+          goTo(resolved.bucket, resolved.id, true);
+          return;
+        }
+        setPrefix(resolved.path);
+        setError(null);
+        setLocationReady(true);
+      } catch (err) {
+        if (cancelled) return;
+        handleApiError(err);
+        goTo(bucket, null, true);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void resolvePrefix();
+    return () => {
+      cancelled = true;
+    };
+  }, [token, bucket, folderIdFromRoute, legacyPath, goTo, handleApiError]);
 
   const loadObjects = useCallback(async () => {
-    if (!token || !bucket) {
+    if (!token || !bucket || !locationReady) {
       setItems([]);
       return;
     }
@@ -172,11 +304,11 @@ export function FileManager() {
     } finally {
       setLoading(false);
     }
-  }, [token, bucket, prefix, handleApiError]);
+  }, [token, bucket, prefix, locationReady, handleApiError]);
 
   /** Refresh listing without the full-page loading flash (e.g. after access edits). */
   const refreshObjectsQuietly = useCallback(async () => {
-    if (!token || !bucket) return;
+    if (!token || !bucket || !locationReady) return;
     try {
       const list = unwrapStorage(
         await shellui.storage.from(bucket).list(prefix, { limit: 200 }),
@@ -186,7 +318,7 @@ export function FileManager() {
       handleApiError(err);
       if (isStorageAuthError(err)) setItems([]);
     }
-  }, [token, bucket, prefix, handleApiError]);
+  }, [token, bucket, prefix, locationReady, handleApiError]);
 
   useEffect(() => {
     if (!token) {
@@ -351,10 +483,14 @@ export function FileManager() {
     try {
       const created = unwrapStorage(
         await shellui.storage.from(bucket).createFolder(joinPath(prefix, name)),
-      );
+      ) as { path: string; id?: string };
       setCreatingFolder(false);
       setNewFolderName('');
-      setPrefix(created.path);
+      if (created.id && isBrowseFolderId(created.id)) {
+        goTo(bucket, created.id);
+      } else {
+        await goToFolderPath(bucket, created.path);
+      }
     } catch (err) {
       handleApiError(err);
     } finally {
@@ -483,7 +619,7 @@ export function FileManager() {
       hoverNavTimerRef.current = null;
       hoverNavPathRef.current = null;
       setDropTarget(dropTargetKey('current', folderPath));
-      setPrefix(folderPath);
+      void goToFolderPath(bucket, folderPath);
     }, HOVER_OPEN_MS);
   }
 
@@ -729,8 +865,13 @@ export function FileManager() {
     }
   }
 
-  function openFolder(folderName: string) {
-    setPrefix(joinPath(prefix, folderName));
+  async function openFolder(item: StorageListItem) {
+    if (!bucket || !isFolderItem(item)) return;
+    if (item.folder_id && isBrowseFolderId(item.folder_id)) {
+      goTo(bucket, item.folder_id);
+      return;
+    }
+    await goToFolderPath(bucket, joinPath(prefix, item.name));
   }
 
   function openViewer(item: StorageListItem) {
@@ -788,7 +929,7 @@ export function FileManager() {
   }
 
   function openItem(item: StorageListItem) {
-    if (isFolderItem(item)) openFolder(item.name);
+    if (isFolderItem(item)) void openFolder(item);
     else openViewer(item);
   }
 
@@ -801,7 +942,7 @@ export function FileManager() {
         key: 'open',
         label: t('open'),
         icon: <FolderOpen className="h-4 w-4" />,
-        onClick: () => openFolder(item.name),
+        onClick: () => void openFolder(item),
       });
       if (canWrite) {
         actions.push({
@@ -991,10 +1132,7 @@ export function FileManager() {
                         ? 'bg-accent font-medium text-accent-foreground'
                         : 'hover:bg-muted'
                     }`}
-                    onClick={() => {
-                      setBucket(b.name);
-                      setPrefix('');
-                    }}
+                    onClick={() => goTo(b.name, null)}
                   >
                     <span className="block text-sm">{b.display_name || b.name}</span>
                     <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
@@ -1035,7 +1173,13 @@ export function FileManager() {
                     className={`rounded px-1.5 py-0.5 hover:bg-muted ${
                       index === crumbs.length - 1 ? 'font-medium' : 'text-muted-foreground'
                     } ${crumbActive ? dropHighlightClass : ''}`}
-                    onClick={() => setPrefix(crumb.path)}
+                    onClick={() => {
+                      if (!crumb.path) {
+                        goTo(bucket, null);
+                        return;
+                      }
+                      void goToFolderPath(bucket, crumb.path);
+                    }}
                     aria-current={index === crumbs.length - 1 ? 'location' : undefined}
                     onDragOver={
                       crumbAccepts
