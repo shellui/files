@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { FileViewer, type ViewerTarget } from '@/components/FileViewer';
 import { useShelluiAccessSession } from '@/hooks/useShelluiAccessToken';
 import { joinPath } from '@/lib/format';
-import { closeAppModal } from '@/lib/modalRoutes';
+import { closeAppDrawer } from '@/lib/modalRoutes';
 import { unwrapStorage } from '@/lib/shellStorage';
 import {
   isStorageAccessDenied,
@@ -109,7 +109,7 @@ export function ViewerPage() {
   }, [authFailed, error, route?.path, fileName, siblings]);
 
   const handleClose = useCallback(() => {
-    closeAppModal();
+    closeAppDrawer();
   }, []);
 
   const handleNavigate = useCallback(

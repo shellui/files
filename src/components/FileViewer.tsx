@@ -36,7 +36,7 @@ type FileViewerProps = {
   siblings: ViewerTarget[];
   onClose: () => void;
   onNavigate: (target: ViewerTarget) => void;
-  /** `overlay` = in-app fullscreen; `embedded` = fill ShellUI modal iframe */
+  /** `overlay` = in-app fullscreen; `embedded` = fill ShellUI drawer iframe */
   variant?: 'overlay' | 'embedded';
 };
 
@@ -224,11 +224,7 @@ export function FileViewer({
           : 'relative z-10 m-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl md:m-6'
       }
     >
-        <header
-          className={`flex shrink-0 flex-wrap items-center gap-3 border-b border-border px-4 py-3 ${
-            embedded ? 'pr-14' : ''
-          }`}
-        >
+        <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border px-4 py-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="truncate font-heading text-base font-semibold tracking-tight md:text-lg">
@@ -278,16 +274,14 @@ export function FileViewer({
               )}
               {t('download')}
             </button>
-            {!embedded ? (
-              <button
-                type="button"
-                className="rounded-md p-2 hover:bg-muted"
-                title={t('viewerClose')}
-                onClick={onClose}
-              >
-                <X className="h-4 w-4" />
-              </button>
-            ) : null}
+            <button
+              type="button"
+              className="rounded-md p-2 hover:bg-muted"
+              title={t('viewerClose')}
+              onClick={onClose}
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
         </header>
 

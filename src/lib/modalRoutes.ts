@@ -177,3 +177,13 @@ export function closeAppModal(): void {
   }
   window.location.hash = '';
 }
+
+/** Close the ShellUI drawer, or clear the hash when running standalone. */
+export function closeAppDrawer(): void {
+  if (typeof window === 'undefined') return;
+  if (window.parent !== window) {
+    window.parent.postMessage({ type: 'SHELLUI_CLOSE_DRAWER', payload: {} }, '*');
+    return;
+  }
+  window.location.hash = '';
+}

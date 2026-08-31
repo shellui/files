@@ -27,6 +27,10 @@ See for sample https://raw.githubusercontent.com/favoloso/conventional-changelog
 
 - **Folder URL sync:** navigating buckets/folders updates `/{bucket}` or `/{bucket}/{folderId}` (stable UUID) via React Router so refresh restores the same folder after renames; legacy path/`?bucket=` URLs migrate to the id form
 
+### 🛠 Improvements
+
+- **File preview:** opens in a right drawer (~60vw) with the close button in the viewer toolbar instead of shell chrome
+
 ### 🐛 Bug Fixes
 
 - **Storage URL:** access grants and share links use host `storage.url` from SDK settings after `shellui.init()`. Removed the `VITE_STORAGE_URL` / `localhost:8001` fallback so the app never calls a hard-coded origin.

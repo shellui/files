@@ -878,10 +878,17 @@ export function FileManager() {
     if (item.id == null || !bucket) return;
     const path = joinPath(prefix, item.name);
     const url = buildViewerModalUrl(bucket, path);
-    openShelluiOrHash(
-      url,
-      `#/viewer?${new URLSearchParams({ bucket, path }).toString()}`,
-    );
+    const hash = `#/viewer?${new URLSearchParams({ bucket, path }).toString()}`;
+    if (typeof window !== 'undefined' && window.parent !== window) {
+      shellui.openDrawer({
+        url,
+        position: 'right',
+        size: '60vw',
+        showCloseButton: false,
+      });
+      return;
+    }
+    window.location.hash = hash;
   }
 
   function openPermissionsFor(list: StorageListItem[]) {
