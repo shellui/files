@@ -30,6 +30,7 @@ See for sample https://raw.githubusercontent.com/favoloso/conventional-changelog
 ### 🛠 Improvements
 
 - **File preview:** opens in a right drawer (~60vw) with the close button in the viewer toolbar instead of shell chrome
+- **File list loading:** keeps column headers visible (disabled) and shows skeleton rows instead of a spinner so the layout no longer jumps
 
 ### 🐛 Bug Fixes
 

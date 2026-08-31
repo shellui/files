@@ -1,6 +1,6 @@
 import { useEffect, useRef, type DragEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { File as FileIcon, Folder, Loader2 } from 'lucide-react';
+import { File as FileIcon, Folder } from 'lucide-react';
 import type { FileSelection } from '@/hooks/useFileSelection';
 import { accessRowLabel } from '@/lib/accessLabel';
 import { dropTargetKey, type DragItemPayload } from '@/lib/dnd';
@@ -66,6 +66,166 @@ function modifierSelectEvent(e: { shiftKey: boolean; metaKey: boolean; ctrlKey: 
   };
 }
 
+const SKELETON_ROW_COUNT = 8;
+
+function SkeletonBar({ className }: { className?: string }) {
+  return <span className={`block animate-pulse rounded-md bg-muted ${className ?? ''}`} aria-hidden />;
+}
+
+type FileListHeaderProps = {
+  loading: boolean;
+  canSelect: boolean;
+  selectionMode: FileSelection['mode'];
+  showAccess: boolean;
+  showType: boolean;
+  showSize: boolean;
+  showModified: boolean;
+  showActions: boolean;
+  allSelectableSelected: boolean;
+  someSelectableSelected: boolean;
+  onToggleSelectAll: () => void;
+};
+
+function FileListHeader({
+  loading,
+  canSelect,
+  selectionMode,
+  showAccess,
+  showType,
+  showSize,
+  showModified,
+  showActions,
+  allSelectableSelected,
+  someSelectableSelected,
+  onToggleSelectAll,
+}: FileListHeaderProps) {
+  const { t } = useTranslation();
+
+  return (
+    <thead
+      className={`text-xs uppercase text-muted-foreground ${loading ? 'pointer-events-none opacity-50' : ''}`}
+    >
+      <tr className="file-list-row">
+        {canSelect ? (
+          <th className="w-10 px-2 py-2 align-middle font-medium">
+            {selectionMode === 'multiple' ? (
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-primary"
+                checked={allSelectableSelected}
+                disabled={loading}
+                ref={(el) => {
+                  if (el) el.indeterminate = someSelectableSelected;
+                }}
+                onChange={onToggleSelectAll}
+                aria-label={t('selectAll')}
+                title={t('selectAll')}
+              />
+            ) : (
+              <span className="sr-only">{t('select')}</span>
+            )}
+          </th>
+        ) : null}
+        <th className="w-full max-w-0 px-3 py-2 font-medium">{t('name')}</th>
+        {showAccess ? (
+          <th className="hidden whitespace-nowrap px-3 py-2 font-medium lg:table-cell">
+            {t('access')}
+          </th>
+        ) : null}
+        {showType ? (
+          <th className="hidden whitespace-nowrap px-3 py-2 font-medium xl:table-cell">
+            {t('type')}
+          </th>
+        ) : null}
+        {showSize ? (
+          <th className="hidden whitespace-nowrap px-3 py-2 font-medium md:table-cell">
+            {t('size')}
+          </th>
+        ) : null}
+        {showModified ? (
+          <th className="hidden whitespace-nowrap px-3 py-2 font-medium lg:table-cell">
+            {t('modified')}
+          </th>
+        ) : null}
+        {showActions ? (
+          <th className="whitespace-nowrap px-2 py-2 text-right font-medium 2xl:px-3">
+            <span className="sr-only 2xl:not-sr-only">{t('actions')}</span>
+          </th>
+        ) : null}
+      </tr>
+    </thead>
+  );
+}
+
+type FileListSkeletonBodyProps = {
+  rowCount: number;
+  canSelect: boolean;
+  showAccess: boolean;
+  showType: boolean;
+  showSize: boolean;
+  showModified: boolean;
+  showActions: boolean;
+  loadingLabel: string;
+};
+
+function FileListSkeletonBody({
+  rowCount,
+  canSelect,
+  showAccess,
+  showType,
+  showSize,
+  showModified,
+  showActions,
+  loadingLabel,
+}: FileListSkeletonBodyProps) {
+  const nameWidths = ['max-w-[9rem]', 'max-w-[14rem]', 'max-w-[11rem]'];
+
+  return (
+    <tbody aria-busy="true" aria-label={loadingLabel}>
+      {Array.from({ length: rowCount }, (_, index) => (
+        <tr key={index} className="file-list-row" aria-hidden>
+          {canSelect ? (
+            <td className="w-10 border-l-2 border-l-transparent px-2 py-2 align-middle">
+              <SkeletonBar className="mx-auto h-4 w-4 rounded-sm" />
+            </td>
+          ) : null}
+          <td className="max-w-0 w-full min-w-0 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <SkeletonBar className="h-4 w-4 shrink-0 rounded-sm" />
+              <SkeletonBar className={`h-4 flex-1 ${nameWidths[index % nameWidths.length]}`} />
+            </div>
+          </td>
+          {showAccess ? (
+            <td className="hidden px-3 py-2 lg:table-cell">
+              <SkeletonBar className="h-4 w-16" />
+            </td>
+          ) : null}
+          {showType ? (
+            <td className="hidden px-3 py-2 xl:table-cell">
+              <SkeletonBar className="h-4 w-24" />
+            </td>
+          ) : null}
+          {showSize ? (
+            <td className="hidden px-3 py-2 md:table-cell">
+              <SkeletonBar className="h-4 w-12" />
+            </td>
+          ) : null}
+          {showModified ? (
+            <td className="hidden px-3 py-2 lg:table-cell">
+              <SkeletonBar className="h-4 w-28" />
+            </td>
+          ) : null}
+          {showActions ? (
+            <td className="px-2 py-2 2xl:px-3">
+              <SkeletonBar className="ml-auto h-4 w-8" />
+            </td>
+          ) : null}
+        </tr>
+      ))}
+    </tbody>
+  );
+}
+
 /**
  * Shared file table with checkbox multi-select. FileManager and the storage
  * picker modal both render this so selection / highlight stay consistent.
@@ -115,81 +275,51 @@ export function FileList({
     };
   }, []);
 
-  if (loading) {
-    return (
-      <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        {t('loading')}
-      </div>
-    );
-  }
-
-  if (items.length === 0) {
+  if (!loading && items.length === 0) {
     return empty ?? null;
   }
+
+  const toggleSelectAll = () => {
+    if (allSelectableSelected) {
+      for (const item of selectableItems) {
+        if (selection.isSelected(item)) selection.toggle(item);
+      }
+    } else {
+      selection.selectAll();
+    }
+  };
 
   return (
     <table
       className="w-full border-separate border-spacing-0 select-none text-left text-sm"
       aria-multiselectable={canSelect}
+      aria-busy={loading || undefined}
     >
-      <thead className="text-xs uppercase text-muted-foreground">
-        <tr className="file-list-row">
-          {canSelect ? (
-            <th className="w-10 px-2 py-2 align-middle font-medium">
-              {selection.mode === 'multiple' ? (
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 accent-primary"
-                  checked={allSelectableSelected}
-                  ref={(el) => {
-                    if (el) el.indeterminate = someSelectableSelected;
-                  }}
-                  onChange={() => {
-                    if (allSelectableSelected) {
-                      for (const item of selectableItems) {
-                        if (selection.isSelected(item)) selection.toggle(item);
-                      }
-                    } else {
-                      selection.selectAll();
-                    }
-                  }}
-                  aria-label={t('selectAll')}
-                  title={t('selectAll')}
-                />
-              ) : (
-                <span className="sr-only">{t('select')}</span>
-              )}
-            </th>
-          ) : null}
-          <th className="w-full max-w-0 px-3 py-2 font-medium">{t('name')}</th>
-          {showAccess ? (
-            <th className="hidden whitespace-nowrap px-3 py-2 font-medium lg:table-cell">
-              {t('access')}
-            </th>
-          ) : null}
-          {showType ? (
-            <th className="hidden whitespace-nowrap px-3 py-2 font-medium xl:table-cell">
-              {t('type')}
-            </th>
-          ) : null}
-          {showSize ? (
-            <th className="hidden whitespace-nowrap px-3 py-2 font-medium md:table-cell">
-              {t('size')}
-            </th>
-          ) : null}
-          {showModified ? (
-            <th className="hidden whitespace-nowrap px-3 py-2 font-medium lg:table-cell">
-              {t('modified')}
-            </th>
-          ) : null}
-          {showActions ? (
-            <th className="whitespace-nowrap px-2 py-2 text-right font-medium 2xl:px-3">
-              <span className="sr-only 2xl:not-sr-only">{t('actions')}</span>
-            </th>
-          ) : null}
-        </tr>
-      </thead>
+      <FileListHeader
+        loading={loading}
+        canSelect={canSelect}
+        selectionMode={selection.mode}
+        showAccess={showAccess}
+        showType={showType}
+        showSize={showSize}
+        showModified={showModified}
+        showActions={showActions}
+        allSelectableSelected={allSelectableSelected}
+        someSelectableSelected={someSelectableSelected}
+        onToggleSelectAll={toggleSelectAll}
+      />
+      {loading ? (
+        <FileListSkeletonBody
+          rowCount={SKELETON_ROW_COUNT}
+          canSelect={canSelect}
+          showAccess={showAccess}
+          showType={showType}
+          showSize={showSize}
+          showModified={showModified}
+          showActions={showActions}
+          loadingLabel={t('loading')}
+        />
+      ) : (
       <tbody>
         {items.map((item) => {
           const isFolder = isFolderItem(item);
@@ -376,6 +506,7 @@ export function FileList({
           );
         })}
       </tbody>
+      )}
     </table>
   );
 }
