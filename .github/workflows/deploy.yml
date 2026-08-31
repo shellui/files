@@ -20,46 +20,29 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout files app
+      - name: Checkout
         uses: actions/checkout@v7
-        with:
-          path: files
-
-      # Linked dependency: files/package.json uses file:../shellui/packages/sdk
-      - name: Checkout ShellUI monorepo
-        uses: actions/checkout@v7
-        with:
-          repository: shellui/shellui
-          path: shellui
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
-        with:
-          # Repo is checked out under `files/`; action default package.json is workspace root
-          package_json_file: files/package.json
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version-file: 'files/.nvmrc'
+          node-version-file: '.nvmrc'
           cache: 'pnpm'
-          cache-dependency-path: files/pnpm-lock.yaml
-
-      - name: Build @shellui/sdk
-        run: pnpm -C shellui install --frozen-lockfile && pnpm -C shellui run build:sdk
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
-        working-directory: files
         run: pnpm install --frozen-lockfile
 
       - name: Build
-        working-directory: files
         run: pnpm build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: ./files/dist
+          path: ./dist
 
   deploy:
     environment:

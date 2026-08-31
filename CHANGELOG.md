@@ -35,6 +35,7 @@ See for sample https://raw.githubusercontent.com/favoloso/conventional-changelog
 ### 🐛 Bug Fixes
 
 - **Storage URL:** access grants and share links use host `storage.url` from SDK settings after `shellui.init()`. Removed the `VITE_STORAGE_URL` / `localhost:8001` fallback so the app never calls a hard-coded origin.
+- **SDK resolve:** Vite no longer aliases `@shellui/sdk` to the sibling monorepo; builds use the version from `package.json` (prod CI was bundling stale `main` and dropping `showCloseButton: false` on the file viewer drawer)
 
 ## [0.1.0] - 2026-08-16
 
