@@ -128,6 +128,46 @@ export function isStorageAccessDenied(err: unknown): boolean {
   return errorStatus(err) === 403;
 }
 
+/** Extract a human-readable message from a storage/SDK error. */
+export function storageErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    const msg = (err as { message: unknown }).message;
+    if (typeof msg === 'string') return msg;
+  }
+  return '';
+}
+
+/** True when storage returned 401 because the JWT is past its expiry. */
+export function isStorageSessionExpired(err: unknown): boolean {
+  if (!isStorageAuthError(err)) return false;
+  const msg = storageErrorMessage(err).toLowerCase();
+  return (
+    msg.includes('token has expired') ||
+    msg.includes('token expired') ||
+    msg.includes('jwt expired')
+  );
+}
+
+type StorageErrorTranslate = (key: string) => string;
+
+/**
+ * Map storage errors to user-facing copy.
+ * Expired sessions get a re-sign-in hint; other auth failures show the API detail
+ * (e.g. JWKS verification errors) instead of a misleading "session expired" message.
+ */
+export function resolveStorageError(err: unknown, t: StorageErrorTranslate): string {
+  if (isStorageAccessDenied(err)) return t('accessDenied');
+  if (isStorageAuthError(err)) {
+    if (isStorageSessionExpired(err)) return t('sessionExpired');
+    const msg = storageErrorMessage(err);
+    if (msg && msg !== 'Not authenticated') return msg;
+    return t('sessionExpired');
+  }
+  const msg = storageErrorMessage(err);
+  return msg || t('error');
+}
+
 /** storage-service base URL from host `storage.url` after `shellui.init()`. */
 function storageBaseUrl(): string {
   const url = shellui.initialSettings?.storage?.url?.trim().replace(/\/+$/, '') ?? '';

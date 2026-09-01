@@ -9,6 +9,7 @@ import { unwrapStorage } from '@/lib/shellStorage';
 import {
   isStorageAccessDenied,
   isStorageAuthError,
+  resolveStorageError,
   type StorageListItem,
 } from '@/lib/storageApi';
 import { parseViewerHash, setViewerHash } from '@/lib/viewerRoute';
@@ -74,7 +75,7 @@ export function ViewerPage() {
           setSiblings([]);
           if (isStorageAuthError(err) || sessionExpired) {
             setAuthFailed(true);
-            setError(t('sessionExpired'));
+            setError(resolveStorageError(err, t));
           } else if (isStorageAccessDenied(err)) {
             setError(t('accessDenied'));
           } else {
@@ -131,7 +132,7 @@ export function ViewerPage() {
   if (sessionExpired || authFailed) {
     return (
       <div className="flex h-full min-h-screen items-center justify-center p-6 text-sm text-destructive">
-        {t('sessionExpired')}
+        {error || t('sessionExpired')}
       </div>
     );
   }

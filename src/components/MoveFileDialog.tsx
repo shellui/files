@@ -9,6 +9,7 @@ import { unwrapStorage } from '@/lib/shellStorage';
 import {
   isStorageAccessDenied,
   isStorageAuthError,
+  resolveStorageError,
   type StorageListItem,
 } from '@/lib/storageApi';
 import { shellui } from '@shellui/sdk';
@@ -29,7 +30,7 @@ type MoveFileDialogProps = {
   target: MoveItemTarget;
   rootLabel: string;
   onClose: () => void;
-  onAuthError: () => void;
+  onAuthError: (message: string) => void;
   /** `embedded` fills a ShellUI modal iframe; `overlay` is a local backdrop. */
   variant?: 'overlay' | 'embedded';
 };
@@ -106,7 +107,7 @@ export function MoveFileDialog({
       );
     } catch (err) {
       if (isStorageAuthError(err)) {
-        onAuthError();
+        onAuthError(resolveStorageError(err, t));
         return;
       }
       if (isStorageAccessDenied(err)) {
@@ -163,7 +164,7 @@ export function MoveFileDialog({
       onClose();
     } catch (err) {
       if (isStorageAuthError(err)) {
-        onAuthError();
+        onAuthError(resolveStorageError(err, t));
         return;
       }
       if (isStorageAccessDenied(err)) {

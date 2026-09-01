@@ -21,6 +21,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 See for sample https://raw.githubusercontent.com/favoloso/conventional-changelog-emoji/master/CHANGELOG.md
 -->
 
+## [0.2.1] - 2026-MM-DD
+
+### 🐛 Bug Fixes
+
+- **Storage auth errors:** distinguish expired sessions from other 401s (e.g. JWKS verification failures) and show the API error detail instead of a misleading “Session expired” banner
+- **Empty buckets state:** no longer shows “No company files available yet” when bucket listing failed; shows a loading state while buckets load and suppresses the empty placeholder when an error is present
+
 ## [0.2.0] - 2026-08-31
 
 ### ✨ Feature

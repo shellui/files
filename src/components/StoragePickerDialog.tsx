@@ -17,6 +17,7 @@ import {
   isStorageAccessDenied,
   isStorageAuthError,
   pickDefaultBucket,
+  resolveStorageError,
   type Bucket,
   type StorageListItem,
 } from '@/lib/storageApi';
@@ -24,7 +25,7 @@ import { shellui } from '@shellui/sdk';
 
 type StoragePickerDialogProps = {
   route: SelectRoute;
-  onAuthError: () => void;
+  onAuthError: (message: string) => void;
 };
 
 export function StoragePickerDialog({ route, onAuthError }: StoragePickerDialogProps) {
@@ -72,7 +73,7 @@ export function StoragePickerDialog({ route, onAuthError }: StoragePickerDialogP
   const handleApiError = useCallback(
     (err: unknown) => {
       if (isStorageAuthError(err)) {
-        onAuthError();
+        onAuthError(resolveStorageError(err, t));
         return;
       }
       if (isStorageAccessDenied(err)) {
@@ -279,7 +280,7 @@ export function StoragePickerDialog({ route, onAuthError }: StoragePickerDialogP
             id = created.id ?? null;
           } catch (err) {
             if (isStorageAuthError(err)) {
-              onAuthError();
+              onAuthError(resolveStorageError(err, t));
               return;
             }
           }
@@ -420,9 +421,9 @@ export function StoragePickerDialog({ route, onAuthError }: StoragePickerDialogP
               </nav>
 
               <div className="min-h-0 flex-1 overflow-auto">
-                {!bucket ? (
+                {!bucket && !error ? (
                   <p className="p-4 text-sm text-muted-foreground">{t('emptyBuckets')}</p>
-                ) : (
+                ) : bucket ? (
                   <FileList
                     items={visibleItems}
                     prefix={prefix}
@@ -451,7 +452,7 @@ export function StoragePickerDialog({ route, onAuthError }: StoragePickerDialogP
                       </p>
                     }
                   />
-                )}
+                ) : null}
               </div>
             </div>
           </div>

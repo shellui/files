@@ -13,7 +13,7 @@ export function ShareLinkPage() {
   const { t } = useTranslation();
   const { token, sessionExpired } = useShelluiAccessSession();
   const [route, setRoute] = useState(() => parseShareHash());
-  const [authFailed, setAuthFailed] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     const onHash = () => setRoute(parseShareHash());
@@ -50,10 +50,18 @@ export function ShareLinkPage() {
     );
   }
 
-  if (sessionExpired || authFailed) {
+  if (sessionExpired) {
     return (
       <div className="flex h-full min-h-screen items-center justify-center p-6 text-sm text-destructive">
         {t('sessionExpired')}
+      </div>
+    );
+  }
+
+  if (authError) {
+    return (
+      <div className="flex h-full min-h-screen items-center justify-center p-6 text-sm text-destructive">
+        {authError}
       </div>
     );
   }
@@ -72,7 +80,7 @@ export function ShareLinkPage() {
       token={token}
       target={target}
       onClose={handleClose}
-      onAuthError={() => setAuthFailed(true)}
+      onAuthError={setAuthError}
       variant="embedded"
     />
   );

@@ -8,6 +8,7 @@ import {
   isStorageAccessDenied,
   isStorageAuthError,
   listAccessGrantsEffective,
+  resolveStorageError,
   StorageApiError,
   type AccessGrant,
   type GrantEffect,
@@ -29,7 +30,7 @@ type PermissionsDialogProps = {
   currentUserId: number | null;
   canManageDeny: boolean;
   onClose: () => void;
-  onAuthError: () => void;
+  onAuthError: (message: string) => void;
   /** `embedded` fills a ShellUI modal iframe; `overlay` is a local backdrop. */
   variant?: 'overlay' | 'embedded';
 };
@@ -98,7 +99,7 @@ export function PermissionsDialog({
       setPrivateAncestor(result.private_ancestor);
     } catch (err) {
       if (isStorageAuthError(err)) {
-        onAuthError();
+        onAuthError(resolveStorageError(err, t));
         return;
       }
       setError(err instanceof Error ? err.message : t('error'));
@@ -145,7 +146,7 @@ export function PermissionsDialog({
       notifyAccessChanged();
     } catch (err) {
       if (isStorageAuthError(err)) {
-        onAuthError();
+        onAuthError(resolveStorageError(err, t));
         return;
       }
       // Prefer the API message (e.g. cannot open nested folder while parent is private).

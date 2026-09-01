@@ -14,7 +14,7 @@ export function PermissionsPage() {
   const { t } = useTranslation();
   const { token, sessionExpired } = useShelluiAccessSession();
   const [route, setRoute] = useState(() => parsePermissionsHash());
-  const [authFailed, setAuthFailed] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     const onHash = () => setRoute(parsePermissionsHash());
@@ -57,10 +57,18 @@ export function PermissionsPage() {
     );
   }
 
-  if (sessionExpired || authFailed) {
+  if (sessionExpired) {
     return (
       <div className="flex h-full min-h-screen items-center justify-center p-6 text-sm text-destructive">
         {t('sessionExpired')}
+      </div>
+    );
+  }
+
+  if (authError) {
+    return (
+      <div className="flex h-full min-h-screen items-center justify-center p-6 text-sm text-destructive">
+        {authError}
       </div>
     );
   }
@@ -82,7 +90,7 @@ export function PermissionsPage() {
       currentUserId={claims?.userId ?? null}
       canManageDeny={Boolean(claims?.isCompanyOwner || claims?.isStaff)}
       onClose={handleClose}
-      onAuthError={() => setAuthFailed(true)}
+      onAuthError={setAuthError}
       variant="embedded"
     />
   );

@@ -7,6 +7,7 @@ import {
   isStorageAccessDenied,
   isStorageAuthError,
   listShareLinks,
+  resolveStorageError,
   revokeShareLink,
   type ObjectShareLink,
 } from '@/lib/storageApi';
@@ -21,7 +22,7 @@ type ShareLinkDialogProps = {
   token: string;
   target: ShareTarget;
   onClose: () => void;
-  onAuthError: () => void;
+  onAuthError: (message: string) => void;
   /** `embedded` fills a ShellUI modal iframe; `overlay` is a local backdrop. */
   variant?: 'overlay' | 'embedded';
 };
@@ -62,7 +63,7 @@ export function ShareLinkDialog({
       setLinks(list);
     } catch (err) {
       if (isStorageAuthError(err)) {
-        onAuthError();
+        onAuthError(resolveStorageError(err, t));
         return;
       }
       if (isStorageAccessDenied(err)) {
@@ -128,7 +129,7 @@ export function ShareLinkDialog({
       await load();
     } catch (err) {
       if (isStorageAuthError(err)) {
-        onAuthError();
+        onAuthError(resolveStorageError(err, t));
         return;
       }
       if (isStorageAccessDenied(err)) {
@@ -155,7 +156,7 @@ export function ShareLinkDialog({
       await load();
     } catch (err) {
       if (isStorageAuthError(err)) {
-        onAuthError();
+        onAuthError(resolveStorageError(err, t));
         return;
       }
       if (isStorageAccessDenied(err)) {

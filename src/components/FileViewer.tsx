@@ -14,6 +14,7 @@ import { unwrapStorage } from '@/lib/shellStorage';
 import {
   isStorageAccessDenied,
   isStorageAuthError,
+  resolveStorageError,
   type StorageListItem,
 } from '@/lib/storageApi';
 import { shellui } from '@shellui/sdk';
@@ -150,7 +151,7 @@ export function FileViewer({
         if (!cancelled) {
           if (isStorageAuthError(err)) {
             setAuthFailed(true);
-            setError(t('sessionExpired'));
+            setError(resolveStorageError(err, t));
             setTextContent(null);
             setObjectUrl(null);
           } else if (isStorageAccessDenied(err)) {
@@ -193,7 +194,7 @@ export function FileViewer({
     } catch (err) {
       if (isStorageAuthError(err)) {
         setAuthFailed(true);
-        setError(t('sessionExpired'));
+        setError(resolveStorageError(err, t));
         setTextContent(null);
         setObjectUrl(null);
       } else if (isStorageAccessDenied(err)) {

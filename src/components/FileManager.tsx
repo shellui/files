@@ -47,9 +47,9 @@ import {
 } from '@/lib/modalRoutes';
 import { unwrapStorage } from '@/lib/shellStorage';
 import {
-  isStorageAccessDenied,
   isStorageAuthError,
   pickDefaultBucket,
+  resolveStorageError,
   type Bucket,
   type StorageListItem,
 } from '@/lib/storageApi';
@@ -65,6 +65,7 @@ export function FileManager() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [buckets, setBuckets] = useState<Bucket[]>([]);
+  const [bucketsLoading, setBucketsLoading] = useState(false);
   /** Storage list prefix resolved from the folder id in the URL. */
   const [prefix, setPrefix] = useState('');
   /** False until the URL folder id (or root) has been resolved to a prefix. */
@@ -159,14 +160,8 @@ export function FileManager() {
     (err: unknown) => {
       if (isStorageAuthError(err)) {
         clearSessionData();
-        setError(t('sessionExpired'));
-        return;
       }
-      if (isStorageAccessDenied(err)) {
-        setError(t('accessDenied'));
-        return;
-      }
-      setError(err instanceof Error ? err.message : t('error'));
+      setError(resolveStorageError(err, t));
     },
     [clearSessionData, t],
   );
@@ -174,8 +169,10 @@ export function FileManager() {
   const loadBuckets = useCallback(async () => {
     if (!token) {
       setBuckets([]);
+      setBucketsLoading(false);
       return;
     }
+    setBucketsLoading(true);
     try {
       const list = unwrapStorage(await shellui.storage.listBuckets()) as Bucket[];
       setBuckets(list);
@@ -192,6 +189,8 @@ export function FileManager() {
       setError(null);
     } catch (err) {
       handleApiError(err);
+    } finally {
+      setBucketsLoading(false);
     }
   }, [token, bucket, goTo, handleApiError]);
 
@@ -1245,9 +1244,14 @@ export function FileManager() {
             onDragLeave={canWrite ? onListDragLeave : undefined}
             onDrop={canWrite ? (e) => void onListDrop(e) : undefined}
           >
-            {!bucket ? (
+            {bucketsLoading ? (
+              <div className="flex min-h-[12rem] items-center justify-center gap-2 p-6 text-sm text-muted-foreground">
+                <RefreshCw className="h-4 w-4 animate-spin" aria-hidden />
+                {t('loading')}
+              </div>
+            ) : !bucket && !error ? (
               <p className="p-4 text-sm text-muted-foreground">{t('emptyBuckets')}</p>
-            ) : (
+            ) : bucket ? (
               <FileList
                 items={items}
                 prefix={prefix}
@@ -1328,7 +1332,7 @@ export function FileManager() {
                   <ItemActions actions={actionsForItem(item)} busy={ctx.busy} />
                 )}
               />
-            )}
+            ) : null}
           </div>
         </main>
       </div>
