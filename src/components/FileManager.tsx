@@ -878,12 +878,15 @@ export function FileManager() {
     const url = buildViewerModalUrl(bucket, path);
     const hash = `#/viewer?${new URLSearchParams({ bucket, path }).toString()}`;
     if (typeof window !== 'undefined' && window.parent !== window) {
-      shellui.openDrawer({
+      // Pass via a variable: published @shellui/sdk OpenDrawerOptions (GitHub main)
+      // does not yet declare showCloseButton; newer hosts still honor it at runtime.
+      const drawerOptions = {
         url,
-        position: 'right',
+        position: 'right' as const,
         size: '60vw',
         showCloseButton: false,
-      });
+      };
+      shellui.openDrawer(drawerOptions);
       return;
     }
     window.location.hash = hash;
