@@ -1,4 +1,4 @@
-/** Shared helpers for ShellUI-centered modal hash routes. */
+/** Shared helpers for Shellui-centered modal hash routes. */
 
 function appBaseUrl(): string {
   return (
@@ -41,7 +41,10 @@ export function parsePermissionsHash(hash = window.location.hash): PermissionsRo
   if (path !== '/permissions') return null;
   const params = new URLSearchParams(search);
   const bucket = params.get('bucket')?.trim() || '';
-  const paths = params.getAll('path').map((value) => value.trim()).filter(Boolean);
+  const paths = params
+    .getAll('path')
+    .map((value) => value.trim())
+    .filter(Boolean);
   const types = params.getAll('type');
   if (!bucket || paths.length === 0) return null;
   const items: PermissionsRouteItem[] = paths.map((objectPath, index) => ({
@@ -55,10 +58,7 @@ export function isPermissionsHash(hash = window.location.hash): boolean {
   return parseHashPath(hash).path === '/permissions';
 }
 
-export function buildPermissionsModalUrl(
-  bucket: string,
-  items: PermissionsRouteItem[],
-): string {
+export function buildPermissionsModalUrl(bucket: string, items: PermissionsRouteItem[]): string {
   const params = new URLSearchParams({ bucket });
   for (const item of items) {
     params.append('path', item.path);
@@ -157,7 +157,7 @@ export type SelectResultPayload = {
   cancelled?: boolean;
 };
 
-/** Send picker result to ShellUI root. Does not close the generic URL modal. */
+/** Send picker result to Shellui root. Does not close the generic URL modal. */
 export function sendSelectResult(payload: SelectResultPayload): void {
   if (typeof window === 'undefined') return;
   const message = { type: 'SHELLUI_SELECT_STORAGE_RESULT', payload };
@@ -168,7 +168,7 @@ export function sendSelectResult(payload: SelectResultPayload): void {
   window.postMessage(message, '*');
 }
 
-/** Close the ShellUI modal, or clear the hash when running standalone. */
+/** Close the Shellui modal, or clear the hash when running standalone. */
 export function closeAppModal(): void {
   if (typeof window === 'undefined') return;
   if (window.parent !== window) {
@@ -178,7 +178,7 @@ export function closeAppModal(): void {
   window.location.hash = '';
 }
 
-/** Close the ShellUI drawer, or clear the hash when running standalone. */
+/** Close the Shellui drawer, or clear the hash when running standalone. */
 export function closeAppDrawer(): void {
   if (typeof window === 'undefined') return;
   if (window.parent !== window) {

@@ -3,11 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import { ShareLinkDialog } from '@/components/ShareLinkDialog';
 import { useShelluiAccessSession } from '@/hooks/useShelluiAccessToken';
-import {
-  closeAppModal,
-  fileNameFromPath,
-  parseShareHash,
-} from '@/lib/modalRoutes';
+import { closeAppModal, fileNameFromPath, parseShareHash } from '@/lib/modalRoutes';
 
 export function ShareLinkPage() {
   const { t } = useTranslation();

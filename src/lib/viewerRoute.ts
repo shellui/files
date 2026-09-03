@@ -20,9 +20,11 @@ export function isViewerHash(hash = window.location.hash): boolean {
   return hash.replace(/^#/, '').startsWith('/viewer');
 }
 
-/** Absolute URL that ShellUI can open in its centered modal. */
+/** Absolute URL that Shellui can open in its centered modal. */
 export function buildViewerModalUrl(bucket: string, path: string): string {
-  const base = `${window.location.origin}${window.location.pathname}`.replace(/\/+$/, '') || window.location.origin;
+  const base =
+    `${window.location.origin}${window.location.pathname}`.replace(/\/+$/, '') ||
+    window.location.origin;
   const params = new URLSearchParams({ bucket, path });
   return `${base}/#/viewer?${params.toString()}`;
 }

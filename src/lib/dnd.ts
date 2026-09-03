@@ -29,10 +29,7 @@ export function isInternalFileDrag(dt: DataTransfer | null | undefined): boolean
   return dragTypes(dt).includes(DND_FILE_MIME);
 }
 
-export function isAcceptableDrop(
-  dt: DataTransfer | null | undefined,
-  canWrite: boolean,
-): boolean {
+export function isAcceptableDrop(dt: DataTransfer | null | undefined, canWrite: boolean): boolean {
   if (!canWrite || !dt) return false;
   return isOsFileDrag(dt) || isInternalFileDrag(dt);
 }
@@ -109,10 +106,7 @@ export function readDragItemPayload(dt: DataTransfer): DragItemPayload | null {
 /** @deprecated Use readDragItemPayload */
 export const readDragFilePayload = readDragItemPayload;
 
-export function dropTargetKey(
-  kind: 'folder' | 'crumb' | 'current',
-  path: string,
-): string {
+export function dropTargetKey(kind: 'folder' | 'crumb' | 'current', path: string): string {
   return `${kind}:${path}`;
 }
 
@@ -128,10 +122,7 @@ function cssVar(name: string, fallback: string): string {
  * Custom drag image: first item name plus a count badge when moving several.
  * The ghost is positioned off-screen; the browser snapshots it on dragstart.
  */
-export function setDragCountImage(
-  dt: DataTransfer,
-  items: Pick<DragItemPayload, 'name'>[],
-): void {
+export function setDragCountImage(dt: DataTransfer, items: Pick<DragItemPayload, 'name'>[]): void {
   if (typeof document === 'undefined' || items.length === 0) return;
   document.getElementById(dragGhostId)?.remove();
 

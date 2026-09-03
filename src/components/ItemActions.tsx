@@ -43,7 +43,10 @@ export function ItemActions({ actions, busy = false }: ItemActionsProps) {
 
   return (
     <div className="flex justify-end">
-      <div className="relative 2xl:hidden" ref={rootRef}>
+      <div
+        className="relative 2xl:hidden"
+        ref={rootRef}
+      >
         <button
           type="button"
           className="rounded p-1.5 hover:bg-muted disabled:opacity-50"

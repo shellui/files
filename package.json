@@ -1,15 +1,19 @@
 {
   "name": "shellui-files",
   "version": "0.2.1",
-  "description": "ShellUI file manager — embedded in the admin panel; file ops go through @shellui/sdk",
+  "description": "Shellui file manager — embedded in the admin panel; file ops go through @shellui/sdk",
   "type": "module",
   "scripts": {
     "start": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "format": "pnpm exec prettier --write .",
+    "format:check": "pnpm exec prettier --check .",
     "build:sdk": "pnpm -C ../shellui run build:sdk"
   },
-  "author": "ShellUI",
+  "author": "Shellui",
   "license": "MIT",
   "packageManager": "pnpm@10.30.0",
   "dependencies": {
@@ -26,9 +30,12 @@
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
+    "jsdom": "^25.0.1",
     "postcss": "^8.4.49",
+    "prettier": "^3.9.6",
     "tailwindcss": "^3.4.16",
     "typescript": "~5.7.2",
-    "vite": "^6.0.3"
+    "vite": "^6.0.3",
+    "vitest": "^3.2.7"
   }
 }

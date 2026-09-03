@@ -37,7 +37,7 @@ type FileViewerProps = {
   siblings: ViewerTarget[];
   onClose: () => void;
   onNavigate: (target: ViewerTarget) => void;
-  /** `overlay` = in-app fullscreen; `embedded` = fill ShellUI drawer iframe */
+  /** `overlay` = in-app fullscreen; `embedded` = fill Shellui drawer iframe */
   variant?: 'overlay' | 'embedded';
 };
 
@@ -131,9 +131,7 @@ export function FileViewer({
       }
 
       try {
-        const blob = unwrapStorage(
-          await shellui.storage.from(bucket).download(target.path),
-        );
+        const blob = unwrapStorage(await shellui.storage.from(bucket).download(target.path));
         if (cancelled) return;
         const mime = listedMime || blob.type || 'application/octet-stream';
         setResolvedMime(mime);
@@ -173,15 +171,20 @@ export function FileViewer({
       cancelled = true;
       if (createdUrl) URL.revokeObjectURL(createdUrl);
     };
-  }, [bucket, target.path, target.item.metadata?.mimetype, target.item.metadata?.size, target.item.name, t]);
+  }, [
+    bucket,
+    target.path,
+    target.item.metadata?.mimetype,
+    target.item.metadata?.size,
+    target.item.name,
+    t,
+  ]);
 
   const handleDownload = useCallback(async () => {
     if (authFailed) return;
     setDownloading(true);
     try {
-      const blob = unwrapStorage(
-        await shellui.storage.from(bucket).download(target.path),
-      );
+      const blob = unwrapStorage(await shellui.storage.from(bucket).download(target.path));
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -213,9 +216,7 @@ export function FileViewer({
   );
 
   const embedded = variant === 'embedded';
-  const mediaMaxClass = embedded
-    ? 'max-h-full max-w-full'
-    : 'max-h-[calc(100vh-12rem)] max-w-full';
+  const mediaMaxClass = embedded ? 'max-h-full max-w-full' : 'max-h-[calc(100vh-12rem)] max-w-full';
 
   const shell = (
     <div
@@ -225,146 +226,78 @@ export function FileViewer({
           : 'relative z-10 m-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl md:m-6'
       }
     >
-        <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border px-4 py-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="truncate font-heading text-base font-semibold tracking-tight md:text-lg">
-                {target.item.name}
-              </h2>
-              <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
-                {kindLabel(kind, t)}
-              </span>
-            </div>
-            <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
-              {joinPath(bucket, target.path)}
-              {' · '}
-              {formatBytes(target.item.metadata?.size)}
-              {resolvedMime ? ` · ${resolvedMime}` : ''}
-            </p>
+      <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="truncate font-heading text-base font-semibold tracking-tight md:text-lg">
+              {target.item.name}
+            </h2>
+            <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+              {kindLabel(kind, t)}
+            </span>
           </div>
+          <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
+            {joinPath(bucket, target.path)}
+            {' · '}
+            {formatBytes(target.item.metadata?.size)}
+            {resolvedMime ? ` · ${resolvedMime}` : ''}
+          </p>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-1">
-            <button
-              type="button"
-              className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40"
-              title={t('viewerPrevious')}
-              onClick={() => prev && onNavigate(prev)}
-              disabled={!prev}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40"
-              title={t('viewerNext')}
-              onClick={() => next && onNavigate(next)}
-              disabled={!next}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-50"
-              onClick={() => void handleDownload()}
-              disabled={downloading || authFailed}
-            >
-              {downloading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Download className="h-3.5 w-3.5" />
-              )}
-              {t('download')}
-            </button>
-            <button
-              type="button"
-              className="rounded-md p-2 hover:bg-muted"
-              title={t('viewerClose')}
-              onClick={onClose}
-            >
-              <X className="h-4 w-4" />
-            </button>
+        <div className="flex flex-wrap items-center gap-1">
+          <button
+            type="button"
+            className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40"
+            title={t('viewerPrevious')}
+            onClick={() => prev && onNavigate(prev)}
+            disabled={!prev}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40"
+            title={t('viewerNext')}
+            onClick={() => next && onNavigate(next)}
+            disabled={!next}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-50"
+            onClick={() => void handleDownload()}
+            disabled={downloading || authFailed}
+          >
+            {downloading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+            {t('download')}
+          </button>
+          <button
+            type="button"
+            className="rounded-md p-2 hover:bg-muted"
+            title={t('viewerClose')}
+            onClick={onClose}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </header>
+
+      <div className="relative min-h-0 flex-1 overflow-auto bg-muted/20">
+        {loading ? (
+          <div className="flex h-full min-h-[12rem] items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            {t('viewerLoading')}
           </div>
-        </header>
-
-        <div className="relative min-h-0 flex-1 overflow-auto bg-muted/20">
-          {loading ? (
-            <div className="flex h-full min-h-[12rem] items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              {t('viewerLoading')}
-            </div>
-          ) : error && kind !== 'unsupported' ? (
-            <div className="flex h-full min-h-[12rem] flex-col items-center justify-center gap-3 p-8 text-center">
-              <EyeOff className="h-8 w-8 text-muted-foreground" />
-              <p className="text-sm text-destructive">{error}</p>
-              {!authFailed ? (
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
-                  onClick={() => void handleDownload()}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  {t('download')}
-                </button>
-              ) : null}
-            </div>
-          ) : kind === 'image' && objectUrl ? (
-            <div className="flex h-full min-h-[12rem] items-center justify-center p-4 md:p-6">
-              <img
-                src={objectUrl}
-                alt={target.item.name}
-                className={`${mediaMaxClass} rounded-lg object-contain shadow-md`}
-              />
-            </div>
-          ) : kind === 'pdf' && objectUrl ? (
-            <iframe
-              title={target.item.name}
-              src={objectUrl}
-              className="h-full min-h-[20rem] w-full border-0 bg-background"
-            />
-          ) : kind === 'video' && objectUrl ? (
-            <div className="flex h-full min-h-[12rem] items-center justify-center p-4 md:p-6">
-              <video
-                src={objectUrl}
-                controls
-                className={`${mediaMaxClass} rounded-lg shadow-md`}
-              >
-                <track kind="captions" />
-              </video>
-            </div>
-          ) : kind === 'audio' && objectUrl ? (
-            <div className="flex h-full min-h-[12rem] flex-col items-center justify-center gap-6 p-8">
-              <div className="flex size-24 items-center justify-center rounded-full bg-muted">
-                <FileIcon className="h-10 w-10 text-muted-foreground" />
-              </div>
-              <p className="font-heading text-lg font-medium">{target.item.name}</p>
-              <audio
-                src={objectUrl}
-                controls
-                className="w-full max-w-md"
-              />
-            </div>
-          ) : kind === 'markdown' && markdownHtml != null ? (
-            <article
-              className="viewer-md mx-auto max-w-3xl px-5 py-8 md:px-8"
-              dangerouslySetInnerHTML={{ __html: markdownHtml }}
-            />
-          ) : (kind === 'text' || kind === 'json') && textContent != null ? (
-            <pre className="h-full overflow-auto p-4 font-mono text-[13px] leading-relaxed text-foreground md:p-6">
-              <code>{textContent}</code>
-            </pre>
-          ) : (
-            <div className="flex h-full min-h-[12rem] flex-col items-center justify-center gap-4 p-8 text-center">
-              <div className="flex size-16 items-center justify-center rounded-2xl bg-muted">
-                <EyeOff className="h-7 w-7 text-muted-foreground" />
-              </div>
-              <div className="space-y-1">
-                <p className="font-heading text-base font-medium">{t('viewerUnsupportedTitle')}</p>
-                <p className="max-w-sm text-sm text-muted-foreground">
-                  {t('viewerUnsupportedDescription', {
-                    type: resolvedMime || mimeHint || t('file'),
-                  })}
-                </p>
-              </div>
+        ) : error && kind !== 'unsupported' ? (
+          <div className="flex h-full min-h-[12rem] flex-col items-center justify-center gap-3 p-8 text-center">
+            <EyeOff className="h-8 w-8 text-muted-foreground" />
+            <p className="text-sm text-destructive">{error}</p>
+            {!authFailed ? (
               <button
                 type="button"
                 className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
@@ -373,17 +306,85 @@ export function FileViewer({
                 <Download className="h-3.5 w-3.5" />
                 {t('download')}
               </button>
+            ) : null}
+          </div>
+        ) : kind === 'image' && objectUrl ? (
+          <div className="flex h-full min-h-[12rem] items-center justify-center p-4 md:p-6">
+            <img
+              src={objectUrl}
+              alt={target.item.name}
+              className={`${mediaMaxClass} rounded-lg object-contain shadow-md`}
+            />
+          </div>
+        ) : kind === 'pdf' && objectUrl ? (
+          <iframe
+            title={target.item.name}
+            src={objectUrl}
+            className="h-full min-h-[20rem] w-full border-0 bg-background"
+          />
+        ) : kind === 'video' && objectUrl ? (
+          <div className="flex h-full min-h-[12rem] items-center justify-center p-4 md:p-6">
+            <video
+              src={objectUrl}
+              controls
+              className={`${mediaMaxClass} rounded-lg shadow-md`}
+            >
+              <track kind="captions" />
+            </video>
+          </div>
+        ) : kind === 'audio' && objectUrl ? (
+          <div className="flex h-full min-h-[12rem] flex-col items-center justify-center gap-6 p-8">
+            <div className="flex size-24 items-center justify-center rounded-full bg-muted">
+              <FileIcon className="h-10 w-10 text-muted-foreground" />
             </div>
-          )}
-        </div>
+            <p className="font-heading text-lg font-medium">{target.item.name}</p>
+            <audio
+              src={objectUrl}
+              controls
+              className="w-full max-w-md"
+            />
+          </div>
+        ) : kind === 'markdown' && markdownHtml != null ? (
+          <article
+            className="viewer-md mx-auto max-w-3xl px-5 py-8 md:px-8"
+            dangerouslySetInnerHTML={{ __html: markdownHtml }}
+          />
+        ) : (kind === 'text' || kind === 'json') && textContent != null ? (
+          <pre className="h-full overflow-auto p-4 font-mono text-[13px] leading-relaxed text-foreground md:p-6">
+            <code>{textContent}</code>
+          </pre>
+        ) : (
+          <div className="flex h-full min-h-[12rem] flex-col items-center justify-center gap-4 p-8 text-center">
+            <div className="flex size-16 items-center justify-center rounded-2xl bg-muted">
+              <EyeOff className="h-7 w-7 text-muted-foreground" />
+            </div>
+            <div className="space-y-1">
+              <p className="font-heading text-base font-medium">{t('viewerUnsupportedTitle')}</p>
+              <p className="max-w-sm text-sm text-muted-foreground">
+                {t('viewerUnsupportedDescription', {
+                  type: resolvedMime || mimeHint || t('file'),
+                })}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
+              onClick={() => void handleDownload()}
+            >
+              <Download className="h-3.5 w-3.5" />
+              {t('download')}
+            </button>
+          </div>
+        )}
+      </div>
 
-        {siblings.length > 1 ? (
-          <footer className="shrink-0 border-t border-border px-4 py-2 text-center font-mono text-[11px] text-muted-foreground">
-            {t('viewerPosition', { current: Math.max(index, 0) + 1, total: siblings.length })}
-            {' · '}
-            {t('viewerShortcuts')}
-          </footer>
-        ) : null}
+      {siblings.length > 1 ? (
+        <footer className="shrink-0 border-t border-border px-4 py-2 text-center font-mono text-[11px] text-muted-foreground">
+          {t('viewerPosition', { current: Math.max(index, 0) + 1, total: siblings.length })}
+          {' · '}
+          {t('viewerShortcuts')}
+        </footer>
+      ) : null}
     </div>
   );
 
@@ -416,4 +417,3 @@ export function FileViewer({
     </div>
   );
 }
-

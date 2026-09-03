@@ -15,7 +15,7 @@ export type ShelluiAccessSession = {
 };
 
 /**
- * JWT from parent ShellUI settings (`Authorization: Bearer`).
+ * JWT from parent Shellui settings (`Authorization: Bearer`).
  * Treats expired tokens as unauthenticated and flips `sessionExpired` when `exp` elapses
  * even if the parent has not pushed a settings update yet.
  */

@@ -23,6 +23,10 @@ See for sample https://raw.githubusercontent.com/favoloso/conventional-changelog
 
 ## [0.2.1] - 2026-MM-DD
 
+### 🔒 Security
+
+- **PR CI:** pull requests and `develop`/`main` run format, TypeScript, Vitest, production build, gitleaks, production dependency audit, brand/secret hygiene, markdown link check, and CodeQL. GitHub Pages deploy stays on push to `main` only.
+
 ### 🐛 Bug Fixes
 
 - **Storage auth errors:** distinguish expired sessions from other 401s (e.g. JWKS verification failures) and show the API error detail instead of a misleading “Session expired” banner

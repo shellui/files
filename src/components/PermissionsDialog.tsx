@@ -31,7 +31,7 @@ type PermissionsDialogProps = {
   canManageDeny: boolean;
   onClose: () => void;
   onAuthError: (message: string) => void;
-  /** `embedded` fills a ShellUI modal iframe; `overlay` is a local backdrop. */
+  /** `embedded` fills a Shellui modal iframe; `overlay` is a local backdrop. */
   variant?: 'overlay' | 'embedded';
 };
 
@@ -43,10 +43,7 @@ function isCompanyDenyRead(grant: AccessGrant, companyId: number | null): boolea
   return String(grant.subject_id) === String(companyId);
 }
 
-function isSelfAllow(
-  grant: AccessGrant,
-  userId: number | null,
-): boolean {
+function isSelfAllow(grant: AccessGrant, userId: number | null): boolean {
   if (userId == null) return false;
   return (
     grant.subject_type === 'user' &&
@@ -165,9 +162,7 @@ export function PermissionsDialog({
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
     const sid =
-      subjectType === 'company'
-        ? String(companyId ?? subjectId.trim())
-        : subjectId.trim();
+      subjectType === 'company' ? String(companyId ?? subjectId.trim()) : subjectId.trim();
     if (!sid) {
       setError(t('permissionsSubjectRequired'));
       return;
@@ -262,9 +257,7 @@ export function PermissionsDialog({
           await deleteAccessGrant(token, grant.id);
         }
         const redundantAllows = result.grants.filter(
-          (g) =>
-            g.effect === 'allow' &&
-            (g.subject_type === 'user' || g.subject_type === 'group'),
+          (g) => g.effect === 'allow' && (g.subject_type === 'user' || g.subject_type === 'group'),
         );
         for (const grant of redundantAllows) {
           await deleteAccessGrant(token, grant.id);
@@ -312,9 +305,15 @@ export function PermissionsDialog({
           embedded ? 'pr-14' : ''
         }`}
       >
-        <Shield className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden />
+        <Shield
+          className="mt-0.5 h-5 w-5 shrink-0 text-primary"
+          aria-hidden
+        />
         <div className="min-w-0 flex-1">
-          <h2 id="permissions-title" className="font-heading text-base font-semibold">
+          <h2
+            id="permissions-title"
+            className="font-heading text-base font-semibold"
+          >
             {t('permissionsTitle')}
           </h2>
           <p className="truncate text-sm text-muted-foreground">
@@ -345,7 +344,11 @@ export function PermissionsDialog({
         {isBulk ? (
           <ul className="max-h-32 space-y-1 overflow-auto rounded-md border border-border/70 px-2 py-1.5 text-sm">
             {targets.map((item) => (
-              <li key={`${item.resourceType}:${item.path}`} className="truncate" title={item.path}>
+              <li
+                key={`${item.resourceType}:${item.path}`}
+                className="truncate"
+                title={item.path}
+              >
                 {item.name}
               </li>
             ))}
@@ -362,9 +365,15 @@ export function PermissionsDialog({
               }`}
             >
               {isPrivate ? (
-                <Lock className="h-3 w-3" aria-hidden />
+                <Lock
+                  className="h-3 w-3"
+                  aria-hidden
+                />
               ) : (
-                <Globe className="h-3 w-3" aria-hidden />
+                <Globe
+                  className="h-3 w-3"
+                  aria-hidden
+                />
               )}
               {isPrivate ? t('permissionsStatusPrivate') : t('permissionsStatusPublic')}
             </span>
@@ -392,7 +401,10 @@ export function PermissionsDialog({
                 disabled={busy || loading}
               >
                 <span className="inline-flex items-center gap-1.5 font-medium">
-                  <Lock className="h-3.5 w-3.5" aria-hidden />
+                  <Lock
+                    className="h-3.5 w-3.5"
+                    aria-hidden
+                  />
                   {t('permissionsMakePrivate')}
                 </span>
                 <span className="mt-0.5 block text-xs text-muted-foreground">
@@ -408,7 +420,10 @@ export function PermissionsDialog({
                 disabled={busy || loading}
               >
                 <span className="inline-flex items-center gap-1.5 font-medium">
-                  <Globe className="h-3.5 w-3.5" aria-hidden />
+                  <Globe
+                    className="h-3.5 w-3.5"
+                    aria-hidden
+                  />
                   {t('permissionsMakePublic')}
                 </span>
                 <span className="mt-0.5 block text-xs text-muted-foreground">
@@ -420,44 +435,50 @@ export function PermissionsDialog({
         ) : null}
 
         {!isBulk ? (
-        <div>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t('permissionsCurrent')}
-          </h3>
-          {loading ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              {t('loading')}
-            </div>
-          ) : grants.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('permissionsEmpty')}</p>
-          ) : (
-            <ul className="space-y-1">
-              {grants.map((grant) => (
-                <li
-                  key={grant.id}
-                  className="flex items-center gap-2 rounded-md border border-border/70 px-2 py-1.5 text-sm"
-                >
-                  <span className="min-w-0 flex-1 truncate" title={grant.notes || undefined}>
-                    {grantSummary(grant)}
-                  </span>
-                  <button
-                    type="button"
-                    className="rounded p-1.5 text-destructive hover:bg-muted disabled:opacity-50"
-                    title={t('permissionsRevoke')}
-                    onClick={() => void handleDelete(grant)}
-                    disabled={busy}
+          <div>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t('permissionsCurrent')}
+            </h3>
+            {loading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {t('loading')}
+              </div>
+            ) : grants.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t('permissionsEmpty')}</p>
+            ) : (
+              <ul className="space-y-1">
+                {grants.map((grant) => (
+                  <li
+                    key={grant.id}
+                    className="flex items-center gap-2 rounded-md border border-border/70 px-2 py-1.5 text-sm"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+                    <span
+                      className="min-w-0 flex-1 truncate"
+                      title={grant.notes || undefined}
+                    >
+                      {grantSummary(grant)}
+                    </span>
+                    <button
+                      type="button"
+                      className="rounded p-1.5 text-destructive hover:bg-muted disabled:opacity-50"
+                      title={t('permissionsRevoke')}
+                      onClick={() => void handleDelete(grant)}
+                      disabled={busy}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         ) : null}
 
-        <form className="space-y-2 border-t border-border pt-3" onSubmit={(e) => void handleCreate(e)}>
+        <form
+          className="space-y-2 border-t border-border pt-3"
+          onSubmit={(e) => void handleCreate(e)}
+        >
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t('permissionsAdd')}
           </h3>
@@ -481,9 +502,7 @@ export function PermissionsDialog({
                 onChange={(e) => setEffect(e.target.value as GrantEffect)}
               >
                 <option value="allow">{t('permissionsEffectAllow')}</option>
-                {canManageDeny ? (
-                  <option value="deny">{t('permissionsEffectDeny')}</option>
-                ) : null}
+                {canManageDeny ? <option value="deny">{t('permissionsEffectDeny')}</option> : null}
               </select>
             </label>
             <label className="text-xs text-muted-foreground">
@@ -495,9 +514,7 @@ export function PermissionsDialog({
               >
                 <option value="read">{t('permissionsPerm_read')}</option>
                 <option value="write">{t('permissionsPerm_write')}</option>
-                {canManageDeny ? (
-                  <option value="admin">{t('permissionsPerm_admin')}</option>
-                ) : null}
+                {canManageDeny ? <option value="admin">{t('permissionsPerm_admin')}</option> : null}
               </select>
             </label>
             <label className="text-xs text-muted-foreground">
@@ -505,9 +522,7 @@ export function PermissionsDialog({
               <input
                 className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm"
                 value={
-                  subjectType === 'company' && companyId != null
-                    ? String(companyId)
-                    : subjectId
+                  subjectType === 'company' && companyId != null ? String(companyId) : subjectId
                 }
                 onChange={(e) => setSubjectId(e.target.value)}
                 disabled={subjectType === 'company' && companyId != null}

@@ -4,11 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { PermissionsDialog } from '@/components/PermissionsDialog';
 import { useShelluiAccessSession } from '@/hooks/useShelluiAccessToken';
 import { getJwtSessionClaims } from '@/lib/jwt';
-import {
-  closeAppModal,
-  fileNameFromPath,
-  parsePermissionsHash,
-} from '@/lib/modalRoutes';
+import { closeAppModal, fileNameFromPath, parsePermissionsHash } from '@/lib/modalRoutes';
 
 export function PermissionsPage() {
   const { t } = useTranslation();
@@ -22,10 +18,7 @@ export function PermissionsPage() {
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
-  const claims = useMemo(
-    () => (token ? getJwtSessionClaims(token) : null),
-    [token],
-  );
+  const claims = useMemo(() => (token ? getJwtSessionClaims(token) : null), [token]);
 
   const targets = useMemo(() => {
     if (!route) return [];

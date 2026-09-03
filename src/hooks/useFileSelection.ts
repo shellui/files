@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  fileItemKey,
-  itemsByKey,
-  keysInRange,
-  selectableKeys,
-} from '@/lib/fileSelection';
+import { fileItemKey, itemsByKey, keysInRange, selectableKeys } from '@/lib/fileSelection';
 import type { StorageListItem } from '@/lib/storageApi';
 
 export type FileSelectionMode = 'none' | 'single' | 'multiple';
@@ -56,10 +51,7 @@ export function useFileSelection({
     });
   }, [items]);
 
-  const selectedItems = useMemo(
-    () => itemsByKey(items, selectedKeys),
-    [items, selectedKeys],
-  );
+  const selectedItems = useMemo(() => itemsByKey(items, selectedKeys), [items, selectedKeys]);
 
   const selectedCount = selectedKeys.size;
   const allSelected = items.length > 0 && selectedCount === items.length;

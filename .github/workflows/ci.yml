@@ -1,0 +1,180 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout files app
+        uses: actions/checkout@v7
+        with:
+          path: files
+
+      # package.json uses file:../shellui/packages/sdk; Vite compiles SDK from source.
+      - name: Checkout shellui monorepo
+        uses: actions/checkout@v7
+        with:
+          repository: shellui/shellui
+          path: shellui
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          package_json_file: files/package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: 'files/.nvmrc'
+          cache: 'pnpm'
+          cache-dependency-path: files/pnpm-lock.yaml
+
+      - name: Build @shellui/sdk
+        run: pnpm -C shellui install --frozen-lockfile && pnpm -C shellui run build:sdk
+
+      - name: Install dependencies
+        working-directory: files
+        run: pnpm install --frozen-lockfile
+
+      - name: Format
+        working-directory: files
+        run: pnpm format:check
+
+      - name: Typecheck
+        working-directory: files
+        run: pnpm typecheck
+
+      - name: Test
+        working-directory: files
+        run: pnpm test
+
+      - name: Build
+        working-directory: files
+        run: pnpm build
+
+  security:
+    name: Security & hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout files app
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          path: files
+
+      - name: Checkout shellui monorepo
+        uses: actions/checkout@v7
+        with:
+          repository: shellui/shellui
+          path: shellui
+
+      - name: Secret scan (gitleaks)
+        run: |
+          set -euo pipefail
+          version=8.28.0
+          install_dir="${RUNNER_TEMP}/gitleaks"
+          mkdir -p "${install_dir}"
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${version}/gitleaks_${version}_linux_x64.tar.gz" \
+            | tar -xz -C "${install_dir}" gitleaks
+          "${install_dir}/gitleaks" detect --source files --verbose --redact --exit-code 1
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          package_json_file: files/package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: 'files/.nvmrc'
+          cache: 'pnpm'
+          cache-dependency-path: files/pnpm-lock.yaml
+
+      - name: Build @shellui/sdk
+        run: pnpm -C shellui install --frozen-lockfile && pnpm -C shellui run build:sdk
+
+      - name: Install dependencies
+        working-directory: files
+        run: pnpm install --frozen-lockfile
+
+      - name: Dependency vulnerabilities
+        working-directory: files
+        run: pnpm audit --prod --audit-level high
+
+      - name: Repo hygiene
+        working-directory: files
+        run: |
+          set -euo pipefail
+
+          if git ls-files --error-unmatch .env >/dev/null 2>&1; then
+            echo '::error::.env is tracked by git — remove it from the repository'
+            exit 1
+          fi
+
+          if git grep -nIE '\bShellUI\b|\bshellUI\b|\bShellUi\b' -- . \
+              ':(exclude).github/workflows/**'; then
+            echo '::error::Use Shellui (product) or shellui (packages), never ShellUI'
+            exit 1
+          fi
+
+          if git grep -nIE 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|BEGIN PRIVATE KEY' -- . \
+              ':(exclude).github/workflows/**' \
+              ':(exclude).env.example' \
+              ':(exclude)*.md'; then
+            echo '::error::Private key material found in tracked files'
+            exit 1
+          fi
+
+  links:
+    name: Markdown links
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Link check (lychee)
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --config .lychee.toml
+            --verbose
+            --no-progress
+            README.md
+            CHANGELOG.md
+          fail: true
+
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3

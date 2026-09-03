@@ -69,7 +69,12 @@ function modifierSelectEvent(e: { shiftKey: boolean; metaKey: boolean; ctrlKey: 
 const SKELETON_ROW_COUNT = 8;
 
 function SkeletonBar({ className }: { className?: string }) {
-  return <span className={`block animate-pulse rounded-md bg-muted ${className ?? ''}`} aria-hidden />;
+  return (
+    <span
+      className={`block animate-pulse rounded-md bg-muted ${className ?? ''}`}
+      aria-hidden
+    />
+  );
 }
 
 type FileListHeaderProps = {
@@ -181,9 +186,16 @@ function FileListSkeletonBody({
   const nameWidths = ['max-w-[9rem]', 'max-w-[14rem]', 'max-w-[11rem]'];
 
   return (
-    <tbody aria-busy="true" aria-label={loadingLabel}>
+    <tbody
+      aria-busy="true"
+      aria-label={loadingLabel}
+    >
       {Array.from({ length: rowCount }, (_, index) => (
-        <tr key={index} className="file-list-row" aria-hidden>
+        <tr
+          key={index}
+          className="file-list-row"
+          aria-hidden
+        >
           {canSelect ? (
             <td className="w-10 border-l-2 border-l-transparent px-2 py-2 align-middle">
               <SkeletonBar className="mx-auto h-4 w-4 rounded-sm" />
@@ -320,192 +332,193 @@ export function FileList({
           loadingLabel={t('loading')}
         />
       ) : (
-      <tbody>
-        {items.map((item) => {
-          const isFolder = isFolderItem(item);
-          const path = joinPath(prefix, item.name);
-          const busy = busyName === path || busyName === '__bulk__';
-          const selected = selection.isSelected(item);
-          const renaming =
-            renamingName === item.name && renamingIsFolder === isFolder;
-          const folderDropActive =
-            Boolean(dnd?.enabled) &&
-            isFolder &&
-            dnd?.dropTarget === dropTargetKey('folder', path) &&
-            !draggingPaths.has(path);
-          const rowDragging = draggingPaths.has(path);
-          const canDrag = Boolean(dnd?.enabled) && !renaming;
+        <tbody>
+          {items.map((item) => {
+            const isFolder = isFolderItem(item);
+            const path = joinPath(prefix, item.name);
+            const busy = busyName === path || busyName === '__bulk__';
+            const selected = selection.isSelected(item);
+            const renaming = renamingName === item.name && renamingIsFolder === isFolder;
+            const folderDropActive =
+              Boolean(dnd?.enabled) &&
+              isFolder &&
+              dnd?.dropTarget === dropTargetKey('folder', path) &&
+              !draggingPaths.has(path);
+            const rowDragging = draggingPaths.has(path);
+            const canDrag = Boolean(dnd?.enabled) && !renaming;
 
-          const itemSelectable = canSelectItem ? canSelectItem(item) : true;
+            const itemSelectable = canSelectItem ? canSelectItem(item) : true;
 
-          return (
-            <tr
-              key={fileItemKey(item)}
-              aria-selected={selected}
-              className={`file-list-row ${selected ? 'file-list-row-selected' : ''} ${
-                folderDropActive ? 'file-list-row-drop' : ''
-              } ${rowDragging ? 'opacity-50' : ''} ${
-                canDrag ? 'cursor-grab active:cursor-grabbing' : canSelect && itemSelectable ? 'cursor-pointer' : ''
-              }`}
-              draggable={canDrag}
-              onClick={(e) => {
-                if (suppressClickRef.current) return;
-                const target = e.target as HTMLElement;
-                if (target.closest('button, a, input, label, [data-no-select]')) return;
-                if (canSelect && itemSelectable) {
-                  selection.select(item, modifierSelectEvent(e));
-                  return;
-                }
-                if (isFolder) onOpen(item);
-              }}
-              onDragStart={
-                dnd?.enabled && !renaming
-                  ? (e) => {
-                      const target = e.target as HTMLElement;
-                      if (target.closest('input, button, a')) {
-                        e.preventDefault();
-                        return;
+            return (
+              <tr
+                key={fileItemKey(item)}
+                aria-selected={selected}
+                className={`file-list-row ${selected ? 'file-list-row-selected' : ''} ${
+                  folderDropActive ? 'file-list-row-drop' : ''
+                } ${rowDragging ? 'opacity-50' : ''} ${
+                  canDrag
+                    ? 'cursor-grab active:cursor-grabbing'
+                    : canSelect && itemSelectable
+                      ? 'cursor-pointer'
+                      : ''
+                }`}
+                draggable={canDrag}
+                onClick={(e) => {
+                  if (suppressClickRef.current) return;
+                  const target = e.target as HTMLElement;
+                  if (target.closest('button, a, input, label, [data-no-select]')) return;
+                  if (canSelect && itemSelectable) {
+                    selection.select(item, modifierSelectEvent(e));
+                    return;
+                  }
+                  if (isFolder) onOpen(item);
+                }}
+                onDragStart={
+                  dnd?.enabled && !renaming
+                    ? (e) => {
+                        const target = e.target as HTMLElement;
+                        if (target.closest('input, button, a')) {
+                          e.preventDefault();
+                          return;
+                        }
+                        suppressClickRef.current = true;
+                        dnd.onItemDragStart(e, item);
                       }
-                      suppressClickRef.current = true;
-                      dnd.onItemDragStart(e, item);
-                    }
-                  : undefined
-              }
-              onDragEnd={
-                dnd?.enabled && !renaming
-                  ? () => {
-                      dnd.onItemDragEnd();
-                      window.setTimeout(() => {
-                        suppressClickRef.current = false;
-                      }, 0);
-                    }
-                  : undefined
-              }
-              onDragOver={
-                dnd?.enabled && isFolder
-                  ? (e) => {
-                      e.stopPropagation();
-                      dnd.onFolderDragOver(e, path);
-                    }
-                  : undefined
-              }
-              onDragLeave={
-                dnd?.enabled && isFolder
-                  ? (e) => dnd.onFolderDragLeave(e, path)
-                  : undefined
-              }
-              onDrop={
-                dnd?.enabled && isFolder
-                  ? (e) => {
-                      e.stopPropagation();
-                      dnd.onFolderDrop(e, path);
-                    }
-                  : undefined
-              }
-            >
-              {canSelect ? (
-                <td
-                  className={`w-10 overflow-hidden p-0 align-middle ${
-                    selected ? 'border-l-2 border-l-primary' : 'border-l-2 border-l-transparent'
-                  }`}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {itemSelectable ? (
-                    <label className="flex min-h-10 cursor-pointer items-center justify-center px-2 py-2">
-                      <input
-                        type="checkbox"
-                        draggable={false}
-                        className="h-4 w-4 shrink-0 accent-primary"
-                        checked={selected}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => {
-                          selection.select(item, {
-                            additive: true,
-                            range: (e.nativeEvent as MouseEvent).shiftKey,
-                          });
-                        }}
-                        aria-label={t('selectItem', { name: item.name })}
-                      />
-                    </label>
+                    : undefined
+                }
+                onDragEnd={
+                  dnd?.enabled && !renaming
+                    ? () => {
+                        dnd.onItemDragEnd();
+                        window.setTimeout(() => {
+                          suppressClickRef.current = false;
+                        }, 0);
+                      }
+                    : undefined
+                }
+                onDragOver={
+                  dnd?.enabled && isFolder
+                    ? (e) => {
+                        e.stopPropagation();
+                        dnd.onFolderDragOver(e, path);
+                      }
+                    : undefined
+                }
+                onDragLeave={
+                  dnd?.enabled && isFolder ? (e) => dnd.onFolderDragLeave(e, path) : undefined
+                }
+                onDrop={
+                  dnd?.enabled && isFolder
+                    ? (e) => {
+                        e.stopPropagation();
+                        dnd.onFolderDrop(e, path);
+                      }
+                    : undefined
+                }
+              >
+                {canSelect ? (
+                  <td
+                    className={`w-10 overflow-hidden p-0 align-middle ${
+                      selected ? 'border-l-2 border-l-primary' : 'border-l-2 border-l-transparent'
+                    }`}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {itemSelectable ? (
+                      <label className="flex min-h-10 cursor-pointer items-center justify-center px-2 py-2">
+                        <input
+                          type="checkbox"
+                          draggable={false}
+                          className="h-4 w-4 shrink-0 accent-primary"
+                          checked={selected}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => {
+                            selection.select(item, {
+                              additive: true,
+                              range: (e.nativeEvent as MouseEvent).shiftKey,
+                            });
+                          }}
+                          aria-label={t('selectItem', { name: item.name })}
+                        />
+                      </label>
+                    ) : (
+                      <span className="block min-h-10" />
+                    )}
+                  </td>
+                ) : null}
+                <td className="max-w-0 w-full min-w-0 overflow-hidden px-3 py-2">
+                  {renaming && renderName ? (
+                    renderName(item, { isFolder, path, busy, selected, renaming })
                   ) : (
-                    <span className="block min-h-10" />
+                    <button
+                      type="button"
+                      className={`flex w-full min-w-0 items-center gap-2 text-left ${
+                        selected ? 'font-medium' : ''
+                      }`}
+                      title={item.name}
+                      onClick={(e) => {
+                        if (e.metaKey || e.ctrlKey || e.shiftKey) {
+                          e.preventDefault();
+                          selection.select(item, modifierSelectEvent(e));
+                          return;
+                        }
+                        onOpen(item);
+                      }}
+                    >
+                      {isFolder ? (
+                        <Folder className="h-4 w-4 shrink-0 text-primary" />
+                      ) : (
+                        <FileIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      )}
+                      <span className="truncate">{item.name}</span>
+                    </button>
                   )}
                 </td>
-              ) : null}
-              <td className="max-w-0 w-full min-w-0 overflow-hidden px-3 py-2">
-                {renaming && renderName ? (
-                  renderName(item, { isFolder, path, busy, selected, renaming })
-                ) : (
-                  <button
-                    type="button"
-                    className={`flex w-full min-w-0 items-center gap-2 text-left ${
-                      selected ? 'font-medium' : ''
-                    }`}
-                    title={item.name}
-                    onClick={(e) => {
-                      if (e.metaKey || e.ctrlKey || e.shiftKey) {
-                        e.preventDefault();
-                        selection.select(item, modifierSelectEvent(e));
-                        return;
-                      }
-                      onOpen(item);
-                    }}
+                {showAccess ? (
+                  <td className="hidden whitespace-nowrap px-3 py-2 text-muted-foreground lg:table-cell">
+                    <span title={item.access?.description || accessFallbackDescription}>
+                      {accessRowLabel(item.access, accessFallbackAudience, t)}
+                    </span>
+                  </td>
+                ) : null}
+                {showType ? (
+                  <td className="hidden max-w-[14rem] truncate px-3 py-2 text-muted-foreground xl:table-cell">
+                    <span
+                      className="block truncate"
+                      title={isFolder ? t('folder') : item.metadata?.mimetype || t('file')}
+                    >
+                      {isFolder ? t('folder') : item.metadata?.mimetype || t('file')}
+                    </span>
+                  </td>
+                ) : null}
+                {showSize ? (
+                  <td className="hidden whitespace-nowrap px-3 py-2 text-muted-foreground md:table-cell">
+                    {isFolder ? '—' : formatBytes(item.metadata?.size)}
+                  </td>
+                ) : null}
+                {showModified ? (
+                  <td className="hidden whitespace-nowrap px-3 py-2 text-muted-foreground lg:table-cell">
+                    {item.updated_at
+                      ? new Date(item.updated_at).toLocaleString()
+                      : item.metadata?.lastModified
+                        ? new Date(item.metadata.lastModified).toLocaleString()
+                        : '—'}
+                  </td>
+                ) : null}
+                {showActions ? (
+                  <td
+                    className="whitespace-nowrap px-2 py-2 align-middle 2xl:px-3"
+                    data-no-select
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    {isFolder ? (
-                      <Folder className="h-4 w-4 shrink-0 text-primary" />
-                    ) : (
-                      <FileIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    )}
-                    <span className="truncate">{item.name}</span>
-                  </button>
-                )}
-              </td>
-              {showAccess ? (
-                <td className="hidden whitespace-nowrap px-3 py-2 text-muted-foreground lg:table-cell">
-                  <span title={item.access?.description || accessFallbackDescription}>
-                    {accessRowLabel(item.access, accessFallbackAudience, t)}
-                  </span>
-                </td>
-              ) : null}
-              {showType ? (
-                <td className="hidden max-w-[14rem] truncate px-3 py-2 text-muted-foreground xl:table-cell">
-                  <span
-                    className="block truncate"
-                    title={isFolder ? t('folder') : item.metadata?.mimetype || t('file')}
-                  >
-                    {isFolder ? t('folder') : item.metadata?.mimetype || t('file')}
-                  </span>
-                </td>
-              ) : null}
-              {showSize ? (
-                <td className="hidden whitespace-nowrap px-3 py-2 text-muted-foreground md:table-cell">
-                  {isFolder ? '—' : formatBytes(item.metadata?.size)}
-                </td>
-              ) : null}
-              {showModified ? (
-                <td className="hidden whitespace-nowrap px-3 py-2 text-muted-foreground lg:table-cell">
-                  {item.updated_at
-                    ? new Date(item.updated_at).toLocaleString()
-                    : item.metadata?.lastModified
-                      ? new Date(item.metadata.lastModified).toLocaleString()
-                      : '—'}
-                </td>
-              ) : null}
-              {showActions ? (
-                <td
-                  className="whitespace-nowrap px-2 py-2 align-middle 2xl:px-3"
-                  data-no-select
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {renderActions?.(item, { busy })}
-                </td>
-              ) : null}
-            </tr>
-          );
-        })}
-      </tbody>
+                    {renderActions?.(item, { busy })}
+                  </td>
+                ) : null}
+              </tr>
+            );
+          })}
+        </tbody>
       )}
     </table>
   );

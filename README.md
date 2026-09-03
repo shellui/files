@@ -23,12 +23,12 @@ Storage-service origin is **not** set via env. After `shellui.init()`, this app 
 
 Also run:
 
-| Service | Port |
-|---------|------|
-| Shellui | 4000 |
-| identity-service | 8000 |
-| admin | 5174 |
-| storage-service | 8001 |
+| Service              | Port     |
+| -------------------- | -------- |
+| Shellui              | 4000     |
+| identity-service     | 8000     |
+| admin                | 5174     |
+| storage-service      | 8001     |
 | **files** (this app) | **5175** |
 
 Host config (`shellui/shellui.config.ts`):
@@ -47,6 +47,16 @@ Apps inside Shellui open the picker with `shellui.selectFolders()` / `shellui.se
 ## Production
 
 Production deploy (GitHub Pages) outputs the site at the **root** of the domain (**https://files.shellui.com/**). Set the host’s `storage.filesUrl` to that origin.
+
+## Tests
+
+```bash
+pnpm test
+pnpm typecheck
+pnpm format:check
+```
+
+Pull requests (and pushes to `develop` / `main`) run the same checks plus production build, secret scan, dependency audit, and CodeQL. GitHub Pages deploy still runs only after merge to `main`. Require those CI jobs in branch protection before merging.
 
 ## Structure
 

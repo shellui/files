@@ -25,8 +25,8 @@ jobs:
         with:
           path: files
 
-      # Linked dependency: files/package.json uses file:../shellui/packages/sdk
-      - name: Checkout ShellUI monorepo
+      # package.json uses file:../shellui/packages/sdk; Vite compiles SDK from source.
+      - name: Checkout shellui monorepo
         uses: actions/checkout@v7
         with:
           repository: shellui/shellui

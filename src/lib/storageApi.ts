@@ -173,7 +173,7 @@ function storageBaseUrl(): string {
   const url = shellui.initialSettings?.storage?.url?.trim().replace(/\/+$/, '') ?? '';
   if (!url) {
     throw new Error(
-      'Storage URL is not set. Configure storage.url in the host ShellUI app (shellui.config.ts).',
+      'Storage URL is not set. Configure storage.url in the host Shellui app (shellui.config.ts).',
     );
   }
   return url;
@@ -192,11 +192,7 @@ async function parseError(response: Response): Promise<StorageApiError> {
   return new StorageApiError(message, response.status, code);
 }
 
-async function request<T>(
-  path: string,
-  token: string,
-  init: RequestInit = {},
-): Promise<T> {
+async function request<T>(path: string, token: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('Authorization', `Bearer ${token}`);
   if (init.body && !(init.body instanceof FormData) && !(init.body instanceof Blob)) {
@@ -309,10 +305,7 @@ export async function listShareLinks(
   bucket: string,
   path: string,
 ): Promise<ObjectShareLink[]> {
-  return request<ObjectShareLink[]>(
-    `/storage/v1/share/${encodedObjectPath(bucket, path)}`,
-    token,
-  );
+  return request<ObjectShareLink[]>(`/storage/v1/share/${encodedObjectPath(bucket, path)}`, token);
 }
 
 export async function createShareLink(
@@ -321,18 +314,14 @@ export async function createShareLink(
   path: string,
   input: CreateShareLinkInput,
 ): Promise<ObjectShareLink> {
-  return request<ObjectShareLink>(
-    `/storage/v1/share/${encodedObjectPath(bucket, path)}`,
-    token,
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        expires_at: input.expires_at ?? null,
-        max_downloads: input.max_downloads ?? null,
-        notes: input.notes ?? '',
-      }),
-    },
-  );
+  return request<ObjectShareLink>(`/storage/v1/share/${encodedObjectPath(bucket, path)}`, token, {
+    method: 'POST',
+    body: JSON.stringify({
+      expires_at: input.expires_at ?? null,
+      max_downloads: input.max_downloads ?? null,
+      notes: input.notes ?? '',
+    }),
+  });
 }
 
 export async function revokeShareLink(token: string, shareToken: string): Promise<ObjectShareLink> {

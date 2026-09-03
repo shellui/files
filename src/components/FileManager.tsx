@@ -36,15 +36,17 @@ import {
   writeDragItemsPayload,
   type DragItemPayload,
 } from '@/lib/dnd';
-import { buildBrowsePath, isBrowseFolderId, parseBrowseRest, parseLegacyBrowseSearch, resolveFolderIdForPath } from '@/lib/browseRoute';
+import {
+  buildBrowsePath,
+  isBrowseFolderId,
+  parseBrowseRest,
+  parseLegacyBrowseSearch,
+  resolveFolderIdForPath,
+} from '@/lib/browseRoute';
 import { isFolderItem, toDragPayload } from '@/lib/fileSelection';
 import { subscribeFilesListChanged } from '@/lib/filesEvents';
 import { isValidFileName, isValidFolderName, joinPath } from '@/lib/format';
-import {
-  buildMoveModalUrl,
-  buildPermissionsModalUrl,
-  buildShareModalUrl,
-} from '@/lib/modalRoutes';
+import { buildMoveModalUrl, buildPermissionsModalUrl, buildShareModalUrl } from '@/lib/modalRoutes';
 import { unwrapStorage } from '@/lib/shellStorage';
 import {
   isStorageAuthError,
@@ -436,9 +438,7 @@ export function FileManager() {
         item.name.toLowerCase() === nextName.toLowerCase(),
     );
     if (conflict) {
-      setError(
-        t(renamingIsFolder ? 'folderExists' : 'fileExists', { name: nextName }),
-      );
+      setError(t(renamingIsFolder ? 'folderExists' : 'fileExists', { name: nextName }));
       return;
     }
 
@@ -501,11 +501,14 @@ export function FileManager() {
     await handleUploadToPrefix(files, prefix);
   }
 
-  async function handleUploadToPrefix(
-    files: FileList | File[] | null,
-    destPrefix: string,
-  ) {
-    if (!token || !bucket || !canWrite || !files || (Array.isArray(files) ? !files.length : !files.length)) {
+  async function handleUploadToPrefix(files: FileList | File[] | null, destPrefix: string) {
+    if (
+      !token ||
+      !bucket ||
+      !canWrite ||
+      !files ||
+      (Array.isArray(files) ? !files.length : !files.length)
+    ) {
       return;
     }
     const list = Array.isArray(files) ? files : Array.from(files);
@@ -514,9 +517,7 @@ export function FileManager() {
       const path = joinPath(destPrefix, file.name);
       setBusyName(path);
       try {
-        unwrapStorage(
-          await shellui.storage.from(bucket).upload(path, file, { upsert: true }),
-        );
+        unwrapStorage(await shellui.storage.from(bucket).upload(path, file, { upsert: true }));
       } catch (err) {
         handleApiError(err);
         break;
@@ -551,9 +552,7 @@ export function FileManager() {
             item.name.toLowerCase() === payload.name.toLowerCase(),
         );
         if (conflict) {
-          setError(
-            t(movingFolder ? 'folderExists' : 'fileExists', { name: payload.name }),
-          );
+          setError(t(movingFolder ? 'folderExists' : 'fileExists', { name: payload.name }));
           return;
         }
       }
@@ -715,9 +714,7 @@ export function FileManager() {
     const related = e.relatedTarget as Node | null;
     if (related && e.currentTarget.contains(related)) return;
     clearHoverNavigate();
-    setDropTarget((current) =>
-      current === dropTargetKey('current', prefix) ? null : current,
-    );
+    setDropTarget((current) => (current === dropTargetKey('current', prefix) ? null : current));
   }
 
   async function onListDrop(e: DragEvent) {
@@ -746,10 +743,7 @@ export function FileManager() {
     return confirmDelete(t('deleteConfirm', { name: item.name }), t('deleteConfirmTitle'));
   }
 
-  async function confirmDeleteFolder(
-    item: StorageListItem,
-    fileCount: number,
-  ): Promise<boolean> {
+  async function confirmDeleteFolder(item: StorageListItem, fileCount: number): Promise<boolean> {
     return confirmDelete(
       t('deleteFolderConfirm', { name: item.name, count: fileCount }),
       t('deleteFolderConfirmTitle'),
@@ -813,7 +807,10 @@ export function FileManager() {
             folderCount,
           })
         : t('deleteSelectedConfirm', { count: selected.length });
-    const confirmed = await confirmDelete(description, t('deleteSelectedTitle', { count: selected.length }));
+    const confirmed = await confirmDelete(
+      description,
+      t('deleteSelectedTitle', { count: selected.length }),
+    );
     if (!confirmed) return;
 
     setBusyName('__bulk__');
@@ -823,7 +820,9 @@ export function FileManager() {
       const folders = selected.filter(isFolderItem);
       if (files.length) {
         unwrapStorage(
-          await shellui.storage.from(bucket).remove(files.map((item) => joinPath(prefix, item.name))),
+          await shellui.storage
+            .from(bucket)
+            .remove(files.map((item) => joinPath(prefix, item.name))),
         );
       }
       for (const folder of folders) {
@@ -913,10 +912,7 @@ export function FileManager() {
     if (!bucket || item.id == null || !shareable) return;
     const path = joinPath(prefix, item.name);
     const url = buildShareModalUrl(bucket, path);
-    openShelluiOrHash(
-      url,
-      `#/share?${new URLSearchParams({ bucket, path }).toString()}`,
-    );
+    openShelluiOrHash(url, `#/share?${new URLSearchParams({ bucket, path }).toString()}`);
   }
 
   function openMove(item: StorageListItem) {
@@ -1157,55 +1153,52 @@ export function FileManager() {
             aria-label={t('breadcrumb')}
           >
             <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
-            {crumbs.map((crumb, index) => {
-              const crumbKey = dropTargetKey('crumb', crumb.path);
-              const crumbActive = dropTarget === crumbKey;
-              const crumbAccepts = canWrite && isValidDestForDrag(crumb.path);
-              return (
-                <span
-                  key={crumb.path || 'root'}
-                  className="inline-flex items-center gap-1"
-                >
-                  {index > 0 ? (
-                    <ChevronRight
-                      className="h-3.5 w-3.5 text-muted-foreground"
-                      aria-hidden
-                    />
-                  ) : (
-                    <Folder className="mr-0.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                  )}
-                  <button
-                    type="button"
-                    className={`rounded px-1.5 py-0.5 hover:bg-muted ${
-                      index === crumbs.length - 1 ? 'font-medium' : 'text-muted-foreground'
-                    } ${crumbActive ? dropHighlightClass : ''}`}
-                    onClick={() => {
-                      if (!crumb.path) {
-                        goTo(bucket, null);
-                        return;
-                      }
-                      void goToFolderPath(bucket, crumb.path);
-                    }}
-                    aria-current={index === crumbs.length - 1 ? 'location' : undefined}
-                    onDragOver={
-                      crumbAccepts
-                        ? (e) => onDropTargetOver(e, crumbKey, crumb.path)
-                        : undefined
-                    }
-                    onDragLeave={
-                      crumbAccepts ? (e) => onDropTargetLeave(e, crumbKey) : undefined
-                    }
-                    onDrop={
-                      crumbAccepts
-                        ? (e) => void handleDropOnPrefix(e, crumb.path)
-                        : undefined
-                    }
+              {crumbs.map((crumb, index) => {
+                const crumbKey = dropTargetKey('crumb', crumb.path);
+                const crumbActive = dropTarget === crumbKey;
+                const crumbAccepts = canWrite && isValidDestForDrag(crumb.path);
+                return (
+                  <span
+                    key={crumb.path || 'root'}
+                    className="inline-flex items-center gap-1"
                   >
-                    {crumb.label}
-                  </button>
-                </span>
-              );
-            })}
+                    {index > 0 ? (
+                      <ChevronRight
+                        className="h-3.5 w-3.5 text-muted-foreground"
+                        aria-hidden
+                      />
+                    ) : (
+                      <Folder
+                        className="mr-0.5 h-3.5 w-3.5 text-muted-foreground"
+                        aria-hidden
+                      />
+                    )}
+                    <button
+                      type="button"
+                      className={`rounded px-1.5 py-0.5 hover:bg-muted ${
+                        index === crumbs.length - 1 ? 'font-medium' : 'text-muted-foreground'
+                      } ${crumbActive ? dropHighlightClass : ''}`}
+                      onClick={() => {
+                        if (!crumb.path) {
+                          goTo(bucket, null);
+                          return;
+                        }
+                        void goToFolderPath(bucket, crumb.path);
+                      }}
+                      aria-current={index === crumbs.length - 1 ? 'location' : undefined}
+                      onDragOver={
+                        crumbAccepts ? (e) => onDropTargetOver(e, crumbKey, crumb.path) : undefined
+                      }
+                      onDragLeave={crumbAccepts ? (e) => onDropTargetLeave(e, crumbKey) : undefined}
+                      onDrop={
+                        crumbAccepts ? (e) => void handleDropOnPrefix(e, crumb.path) : undefined
+                      }
+                    >
+                      {crumb.label}
+                    </button>
+                  </span>
+                );
+              })}
             </div>
             <div className="ml-auto flex h-7 shrink-0 items-center">
               {selection.selectedCount > 0 ? (
@@ -1217,9 +1210,7 @@ export function FileManager() {
                   onClear={selection.clear}
                   onDelete={canWrite ? () => void handleDeleteSelected() : undefined}
                   onPermissions={
-                    grantsEnabled
-                      ? () => openPermissionsFor(selection.selectedItems)
-                      : undefined
+                    grantsEnabled ? () => openPermissionsFor(selection.selectedItems) : undefined
                   }
                 />
               ) : selectedBucket?.access ? (
@@ -1246,7 +1237,10 @@ export function FileManager() {
           >
             {bucketsLoading ? (
               <div className="flex min-h-[12rem] items-center justify-center gap-2 p-6 text-sm text-muted-foreground">
-                <RefreshCw className="h-4 w-4 animate-spin" aria-hidden />
+                <RefreshCw
+                  className="h-4 w-4 animate-spin"
+                  aria-hidden
+                />
                 {t('loading')}
               </div>
             ) : !bucket && !error ? (
@@ -1265,7 +1259,10 @@ export function FileManager() {
                 accessFallbackDescription={selectedBucket?.access?.description}
                 empty={
                   <div className="flex min-h-[12rem] flex-col items-center justify-center gap-2 p-6 text-center">
-                    <Upload className="h-8 w-8 text-muted-foreground/70" aria-hidden />
+                    <Upload
+                      className="h-8 w-8 text-muted-foreground/70"
+                      aria-hidden
+                    />
                     <p className="text-sm text-muted-foreground">{t('emptyBucket')}</p>
                     {canWrite ? (
                       <p className="text-xs text-muted-foreground">{t('dropUploadHint')}</p>
@@ -1329,7 +1326,10 @@ export function FileManager() {
                   </div>
                 )}
                 renderActions={(item, ctx) => (
-                  <ItemActions actions={actionsForItem(item)} busy={ctx.busy} />
+                  <ItemActions
+                    actions={actionsForItem(item)}
+                    busy={ctx.busy}
+                  />
                 )}
               />
             ) : null}

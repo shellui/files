@@ -27,20 +27,13 @@ export function toDragPayload(
   };
 }
 
-export function itemsByKey(
-  items: StorageListItem[],
-  keys: ReadonlySet<string>,
-): StorageListItem[] {
+export function itemsByKey(items: StorageListItem[], keys: ReadonlySet<string>): StorageListItem[] {
   if (keys.size === 0) return [];
   return items.filter((item) => keys.has(fileItemKey(item)));
 }
 
 /** Inclusive range of keys between two rows, following `items` order. */
-export function keysInRange(
-  items: StorageListItem[],
-  fromKey: string,
-  toKey: string,
-): string[] {
+export function keysInRange(items: StorageListItem[], fromKey: string, toKey: string): string[] {
   const from = items.findIndex((item) => fileItemKey(item) === fromKey);
   const to = items.findIndex((item) => fileItemKey(item) === toKey);
   if (from < 0 && to < 0) return [];
