@@ -4,17 +4,13 @@ import { Loader2 } from 'lucide-react';
 import { PermissionsDialog } from '@/components/PermissionsDialog';
 import { useShelluiAccessSession } from '@/hooks/useShelluiAccessToken';
 import { getJwtSessionClaims } from '@/lib/jwt';
-import {
-  closeAppModal,
-  fileNameFromPath,
-  parsePermissionsHash,
-} from '@/lib/modalRoutes';
+import { closeAppModal, fileNameFromPath, parsePermissionsHash } from '@/lib/modalRoutes';
 
 export function PermissionsPage() {
   const { t } = useTranslation();
   const { token, sessionExpired } = useShelluiAccessSession();
   const [route, setRoute] = useState(() => parsePermissionsHash());
-  const [authFailed, setAuthFailed] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     const onHash = () => setRoute(parsePermissionsHash());
@@ -22,10 +18,7 @@ export function PermissionsPage() {
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
-  const claims = useMemo(
-    () => (token ? getJwtSessionClaims(token) : null),
-    [token],
-  );
+  const claims = useMemo(() => (token ? getJwtSessionClaims(token) : null), [token]);
 
   const targets = useMemo(() => {
     if (!route) return [];
@@ -57,10 +50,18 @@ export function PermissionsPage() {
     );
   }
 
-  if (sessionExpired || authFailed) {
+  if (sessionExpired) {
     return (
       <div className="flex h-full min-h-screen items-center justify-center p-6 text-sm text-destructive">
         {t('sessionExpired')}
+      </div>
+    );
+  }
+
+  if (authError) {
+    return (
+      <div className="flex h-full min-h-screen items-center justify-center p-6 text-sm text-destructive">
+        {authError}
       </div>
     );
   }
@@ -82,7 +83,7 @@ export function PermissionsPage() {
       currentUserId={claims?.userId ?? null}
       canManageDeny={Boolean(claims?.isCompanyOwner || claims?.isStaff)}
       onClose={handleClose}
-      onAuthError={() => setAuthFailed(true)}
+      onAuthError={setAuthError}
       variant="embedded"
     />
   );

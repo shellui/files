@@ -25,15 +25,11 @@ export function fromListItem(
     path: joinPath(prefix, item.name),
     name: item.name,
     type: folder ? 'folder' : 'file',
-    id: folder ? item.folder_id ?? null : item.id,
+    id: folder ? (item.folder_id ?? null) : item.id,
   };
 }
 
-export function currentFolderItem(
-  bucket: string,
-  prefix: string,
-  name: string,
-): PickedStorageItem {
+export function currentFolderItem(bucket: string, prefix: string, name: string): PickedStorageItem {
   return {
     bucket,
     path: prefix,

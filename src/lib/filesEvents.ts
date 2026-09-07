@@ -1,4 +1,4 @@
-/** Cross-iframe events between FileManager and ShellUI modal pages (same origin). */
+/** Cross-iframe events between FileManager and Shellui modal pages (same origin). */
 
 const CHANNEL = 'shellui-files';
 
@@ -9,9 +9,7 @@ export type FilesListChangedEvent = {
   path: string;
 };
 
-export function notifyFilesListChanged(
-  event: Omit<FilesListChangedEvent, 'type'>,
-): void {
+export function notifyFilesListChanged(event: Omit<FilesListChangedEvent, 'type'>): void {
   if (typeof BroadcastChannel === 'undefined') return;
   try {
     const channel = new BroadcastChannel(CHANNEL);

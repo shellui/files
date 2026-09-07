@@ -1,12 +1,5 @@
 export type ViewerKind =
-  | 'image'
-  | 'pdf'
-  | 'video'
-  | 'audio'
-  | 'text'
-  | 'markdown'
-  | 'json'
-  | 'unsupported';
+  'image' | 'pdf' | 'video' | 'audio' | 'text' | 'markdown' | 'json' | 'unsupported';
 
 const TEXT_EXTENSIONS = new Set([
   'txt',
@@ -70,7 +63,10 @@ export function resolveViewerKind(mime: string | null | undefined, name: string)
   const type = (mime || '').toLowerCase().split(';')[0].trim();
   const ext = extensionOf(name);
 
-  if (type.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif'].includes(ext)) {
+  if (
+    type.startsWith('image/') ||
+    ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif'].includes(ext)
+  ) {
     return 'image';
   }
   if (type === 'application/pdf' || ext === 'pdf') {
@@ -91,7 +87,12 @@ export function resolveViewerKind(mime: string | null | undefined, name: string)
   ) {
     return 'json';
   }
-  if (type === 'text/markdown' || type === 'text/x-markdown' || ext === 'md' || ext === 'markdown') {
+  if (
+    type === 'text/markdown' ||
+    type === 'text/x-markdown' ||
+    ext === 'md' ||
+    ext === 'markdown'
+  ) {
     return 'markdown';
   }
   if (
@@ -121,10 +122,7 @@ export function isTextTooLarge(size: number | undefined | null): boolean {
 
 /** Escape HTML then apply a light Markdown subset for previews. */
 export function renderMarkdownLite(source: string): string {
-  const escaped = source
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  const escaped = source.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
   const lines = escaped.split('\n');
   const html: string[] = [];

@@ -9,7 +9,7 @@ export function MoveFilePage() {
   const { t } = useTranslation();
   const { token, sessionExpired } = useShelluiAccessSession();
   const [route, setRoute] = useState(() => parseMoveHash());
-  const [authFailed, setAuthFailed] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     const onHash = () => setRoute(parseMoveHash());
@@ -42,10 +42,18 @@ export function MoveFilePage() {
     );
   }
 
-  if (sessionExpired || authFailed) {
+  if (sessionExpired) {
     return (
       <div className="flex h-full min-h-screen items-center justify-center p-6 text-sm text-destructive">
         {t('sessionExpired')}
+      </div>
+    );
+  }
+
+  if (authError) {
+    return (
+      <div className="flex h-full min-h-screen items-center justify-center p-6 text-sm text-destructive">
+        {authError}
       </div>
     );
   }
@@ -64,7 +72,7 @@ export function MoveFilePage() {
       target={target}
       rootLabel={route.bucket}
       onClose={handleClose}
-      onAuthError={() => setAuthFailed(true)}
+      onAuthError={setAuthError}
       variant="embedded"
     />
   );

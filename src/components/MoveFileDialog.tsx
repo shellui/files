@@ -9,6 +9,7 @@ import { unwrapStorage } from '@/lib/shellStorage';
 import {
   isStorageAccessDenied,
   isStorageAuthError,
+  resolveStorageError,
   type StorageListItem,
 } from '@/lib/storageApi';
 import { shellui } from '@shellui/sdk';
@@ -29,8 +30,8 @@ type MoveFileDialogProps = {
   target: MoveItemTarget;
   rootLabel: string;
   onClose: () => void;
-  onAuthError: () => void;
-  /** `embedded` fills a ShellUI modal iframe; `overlay` is a local backdrop. */
+  onAuthError: (message: string) => void;
+  /** `embedded` fills a Shellui modal iframe; `overlay` is a local backdrop. */
   variant?: 'overlay' | 'embedded';
 };
 
@@ -106,7 +107,7 @@ export function MoveFileDialog({
       );
     } catch (err) {
       if (isStorageAuthError(err)) {
-        onAuthError();
+        onAuthError(resolveStorageError(err, t));
         return;
       }
       if (isStorageAccessDenied(err)) {
@@ -134,13 +135,10 @@ export function MoveFileDialog({
       ) as StorageListItem[];
       const conflict = destEntries.some(
         (item) =>
-          (item.id == null) === isFolder &&
-          item.name.toLowerCase() === target.name.toLowerCase(),
+          (item.id == null) === isFolder && item.name.toLowerCase() === target.name.toLowerCase(),
       );
       if (conflict) {
-        setError(
-          t(isFolder ? 'folderExists' : 'fileExists', { name: target.name }),
-        );
+        setError(t(isFolder ? 'folderExists' : 'fileExists', { name: target.name }));
         setBusy(false);
         return;
       }
@@ -151,9 +149,7 @@ export function MoveFileDialog({
             .move(target.path, destinationPath, { folder: true }),
         );
       } else {
-        unwrapStorage(
-          await shellui.storage.from(target.bucket).move(target.path, destinationPath),
-        );
+        unwrapStorage(await shellui.storage.from(target.bucket).move(target.path, destinationPath));
       }
       notifyFilesListChanged({
         reason: 'move',
@@ -163,7 +159,7 @@ export function MoveFileDialog({
       onClose();
     } catch (err) {
       if (isStorageAuthError(err)) {
-        onAuthError();
+        onAuthError(resolveStorageError(err, t));
         return;
       }
       if (isStorageAccessDenied(err)) {
@@ -190,9 +186,15 @@ export function MoveFileDialog({
           embedded ? 'pr-14' : ''
         }`}
       >
-        <FolderInput className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden />
+        <FolderInput
+          className="mt-0.5 h-5 w-5 shrink-0 text-primary"
+          aria-hidden
+        />
         <div className="min-w-0 flex-1">
-          <h2 id="move-file-title" className="font-heading text-base font-semibold">
+          <h2
+            id="move-file-title"
+            className="font-heading text-base font-semibold"
+          >
             {t(isFolder ? 'moveFolderTitle' : 'moveFileTitle')}
           </h2>
           <p className="truncate text-sm text-muted-foreground">
@@ -232,9 +234,15 @@ export function MoveFileDialog({
               crumb.path,
             );
             return (
-              <span key={crumb.path || 'root'} className="inline-flex items-center gap-0.5">
+              <span
+                key={crumb.path || 'root'}
+                className="inline-flex items-center gap-0.5"
+              >
                 {index > 0 ? (
-                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                  <ChevronRight
+                    className="h-3.5 w-3.5 text-muted-foreground"
+                    aria-hidden
+                  />
                 ) : null}
                 <button
                   type="button"

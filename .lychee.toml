@@ -1,0 +1,21 @@
+# Lychee — markdown link checker (CI: .github/workflows/ci.yml)
+# https://github.com/lycheeverse/lychee
+
+cache = true
+max_cache_age = "2d"
+
+max_concurrency = 8
+timeout = 20
+accept = ["200", "204", "206", "429"]
+
+exclude = [
+  '^https?://localhost(:[0-9]+)?(/|$)',
+  '^https?://127\.0\.0\.1(:[0-9]+)?(/|$)',
+  '^https?://\[::1\](:[0-9]+)?(/|$)',
+  '^https?://([^/]*\.)?example\.com(/|$)',
+  # Sibling repos in the local workspace, not present in this GitHub repository
+  '^\.\./',
+]
+
+scheme = ['https', 'http']
+include_verbatim = false

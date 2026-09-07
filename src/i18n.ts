@@ -5,16 +5,16 @@ const resources = {
   en: {
     translation: {
       appTitle: 'Files',
-      standaloneTitle: 'Open Files from ShellUI Admin',
+      standaloneTitle: 'Open Files from Shellui Admin',
       standaloneDescription:
-        'This file manager runs inside the administration panel iframe. Open it from ShellUI Admin → Storage → Files.',
+        'This file manager runs inside the administration panel iframe. Open it from Shellui Admin → Storage → Files.',
       standaloneStepRun:
-        '1. Start ShellUI (:4000), admin (:5174), storage-service (:8001), and this app (pnpm start → :5175).',
+        '1. Start Shellui (:4000), admin (:5174), storage-service (:8001), and this app (pnpm start → :5175).',
       standaloneConfigSnippet: `storage: {
   url: 'http://localhost:8001',
   filesUrl: 'http://localhost:5175/',
 },`,
-      waitingSession: 'Waiting for ShellUI session…',
+      waitingSession: 'Waiting for Shellui session…',
       noToken: 'No access token received. Open Files from Admin while signed in.',
       sessionExpired: 'Session expired. Re-open Files from Admin while signed in.',
       accessDenied: 'You do not have permission to do that.',
@@ -43,7 +43,8 @@ const resources = {
       close: 'Close',
       emptyBucket: 'This folder is empty.',
       dropUploadHint: 'Drop files here to upload, or onto a folder / breadcrumb.',
-      emptyBuckets: 'No company files available yet. Open Files while signed in to provision storage.',
+      emptyBuckets:
+        'No company files available yet. Open Files while signed in to provision storage.',
       readOnlyLocation: 'This location is read-only.',
       name: 'Name',
       access: 'Who can access',
@@ -121,8 +122,7 @@ const resources = {
       permissionsMakePublic: 'Make public',
       permissionsMakePublicHelp:
         'Restore company-wide access and remove private-only grants on this path. Not allowed inside a private parent folder — open the parent first.',
-      permissionsPrivateNeedsClaims:
-        'Cannot make private — session is missing company or user id.',
+      permissionsPrivateNeedsClaims: 'Cannot make private — session is missing company or user id.',
       permissionsDenied: 'You cannot change this grant (owner/admin required for deny/admin).',
       permissionsParentPrivate:
         'Cannot open this path to the company while “{{folder}}” is private. Change access on that parent folder first.',
@@ -183,8 +183,7 @@ const resources = {
       selectedCount_other: '{{count}} selected',
       clearSelection: 'Clear selection',
       deleteSelectedTitle: 'Delete {{count}} items?',
-      deleteSelectedConfirm:
-        'Delete {{count}} selected items? This cannot be undone.',
+      deleteSelectedConfirm: 'Delete {{count}} selected items? This cannot be undone.',
       deleteSelectedConfirmWithFolders:
         'Delete {{count}} selected items, including {{folderCount}} folder(s) and their contents? This cannot be undone.',
       permissionsBulk: '{{count}} items',
@@ -210,19 +209,18 @@ const resources = {
   fr: {
     translation: {
       appTitle: 'Fichiers',
-      standaloneTitle: 'Ouvrir Fichiers depuis l’admin ShellUI',
+      standaloneTitle: 'Ouvrir Fichiers depuis l’admin Shellui',
       standaloneDescription:
         'Ce gestionnaire de fichiers s’exécute dans l’iframe d’administration. Ouvrez-le via Admin → Stockage → Fichiers.',
       standaloneStepRun:
-        '1. Démarrez ShellUI (:4000), admin (:5174), storage-service (:8001) et cette app (pnpm start → :5175).',
+        '1. Démarrez Shellui (:4000), admin (:5174), storage-service (:8001) et cette app (pnpm start → :5175).',
       standaloneConfigSnippet: `storage: {
   url: 'http://localhost:8001',
   filesUrl: 'http://localhost:5175/',
 },`,
-      waitingSession: 'En attente de la session ShellUI…',
+      waitingSession: 'En attente de la session Shellui…',
       noToken: 'Aucun jeton reçu. Ouvrez Fichiers depuis l’admin en étant connecté.',
-      sessionExpired:
-        'Session expirée. Rouvrez Fichiers depuis l’admin en étant connecté.',
+      sessionExpired: 'Session expirée. Rouvrez Fichiers depuis l’admin en étant connecté.',
       accessDenied: 'Vous n’avez pas la permission d’effectuer cette action.',
       locations: 'Emplacements',
       refresh: 'Actualiser',
@@ -301,7 +299,8 @@ const resources = {
       permissionsHelp:
         'Les fichiers d’entreprise sont ouverts à tous les membres par défaut. Les grants permettent d’autoriser des personnes ou de bloquer les autres.',
       permissionsCurrent: 'Grants actuels',
-      permissionsEmpty: 'Aucun grant personnalisé — les droits par défaut de l’entreprise s’appliquent.',
+      permissionsEmpty:
+        'Aucun grant personnalisé — les droits par défaut de l’entreprise s’appliquent.',
       permissionsAdd: 'Ajouter un grant',
       permissionsAddGrant: 'Ajouter',
       permissionsRevoke: 'Révoquer le grant',
@@ -357,8 +356,7 @@ const resources = {
       shareExisting: 'Vos liens pour ce fichier',
       shareEmpty: 'Aucun lien de partage pour l’instant.',
       shareRevoke: 'Révoquer',
-      shareDenied:
-        'Vous avez besoin d’un accès en écriture pour gérer les liens de ce fichier.',
+      shareDenied: 'Vous avez besoin d’un accès en écriture pour gérer les liens de ce fichier.',
       shareLimitRequired: 'Choisissez une date d’expiration et/ou une limite de téléchargements.',
       shareInvalidExpiry: 'L’expiration doit être une date/heure future.',
       shareInvalidMaxDownloads: 'Le nombre max de téléchargements doit être au moins 1.',
@@ -408,7 +406,8 @@ const resources = {
       pickerTitleFilesMany: 'Sélectionner des fichiers',
       pickerTitleAny: 'Sélectionner un fichier ou un dossier',
       pickerTitleAnyMany: 'Sélectionner des fichiers et des dossiers',
-      pickerSubtitle: 'Ouvrez les dossiers pour parcourir. La sélection est conservée en naviguant.',
+      pickerSubtitle:
+        'Ouvrez les dossiers pour parcourir. La sélection est conservée en naviguant.',
       pickerSelectCurrent: 'Sélectionner ce dossier',
       pickerCurrentSelected: 'Ce dossier est sélectionné',
       pickerSelected: '{{count}} sélectionné(s)',

@@ -17,6 +17,7 @@ import {
   isStorageAccessDenied,
   isStorageAuthError,
   pickDefaultBucket,
+  resolveStorageError,
   type Bucket,
   type StorageListItem,
 } from '@/lib/storageApi';
@@ -24,7 +25,7 @@ import { shellui } from '@shellui/sdk';
 
 type StoragePickerDialogProps = {
   route: SelectRoute;
-  onAuthError: () => void;
+  onAuthError: (message: string) => void;
 };
 
 export function StoragePickerDialog({ route, onAuthError }: StoragePickerDialogProps) {
@@ -72,7 +73,7 @@ export function StoragePickerDialog({ route, onAuthError }: StoragePickerDialogP
   const handleApiError = useCallback(
     (err: unknown) => {
       if (isStorageAuthError(err)) {
-        onAuthError();
+        onAuthError(resolveStorageError(err, t));
         return;
       }
       if (isStorageAccessDenied(err)) {
@@ -160,8 +161,7 @@ export function StoragePickerDialog({ route, onAuthError }: StoragePickerDialogP
     const allSelected = selectable.length > 0 && selectedCount === selectable.length;
     const someSelected = selectedCount > 0 && !allSelected;
 
-    const isSelected = (item: StorageListItem) =>
-      isPicked(fromListItem(item, bucket, prefix));
+    const isSelected = (item: StorageListItem) => isPicked(fromListItem(item, bucket, prefix));
 
     const select: FileSelection['select'] = (item, event = {}) => {
       if (!canSelectItem(item)) return;
@@ -242,16 +242,7 @@ export function StoragePickerDialog({ route, onAuthError }: StoragePickerDialogP
         setPicked((current) => current.filter((entry) => !listing.has(pickedKey(entry))));
       },
     };
-  }, [
-    bucket,
-    canSelectItem,
-    isPicked,
-    picked,
-    prefix,
-    route.multiple,
-    togglePicked,
-    visibleItems,
-  ]);
+  }, [bucket, canSelectItem, isPicked, picked, prefix, route.multiple, togglePicked, visibleItems]);
 
   const currentFolder = useMemo(
     () => currentFolderItem(bucket, prefix, crumbs[crumbs.length - 1]?.label || rootLabel),
@@ -279,7 +270,7 @@ export function StoragePickerDialog({ route, onAuthError }: StoragePickerDialogP
             id = created.id ?? null;
           } catch (err) {
             if (isStorageAuthError(err)) {
-              onAuthError();
+              onAuthError(resolveStorageError(err, t));
               return;
             }
           }
@@ -317,9 +308,15 @@ export function StoragePickerDialog({ route, onAuthError }: StoragePickerDialogP
       aria-labelledby="storage-picker-title"
     >
       <header className="flex items-start gap-3 border-b border-border px-4 py-3 pr-14">
-        <FolderCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden />
+        <FolderCheck
+          className="mt-0.5 h-5 w-5 shrink-0 text-primary"
+          aria-hidden
+        />
         <div className="min-w-0 flex-1">
-          <h2 id="storage-picker-title" className="font-heading text-base font-semibold">
+          <h2
+            id="storage-picker-title"
+            className="font-heading text-base font-semibold"
+          >
             {title}
           </h2>
           <p className="text-sm text-muted-foreground">{t('pickerSubtitle')}</p>
@@ -391,11 +388,20 @@ export function StoragePickerDialog({ route, onAuthError }: StoragePickerDialogP
                 aria-label={t('breadcrumb')}
               >
                 {crumbs.map((crumb, index) => (
-                  <span key={crumb.path || 'root'} className="inline-flex items-center gap-0.5">
+                  <span
+                    key={crumb.path || 'root'}
+                    className="inline-flex items-center gap-0.5"
+                  >
                     {index > 0 ? (
-                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                      <ChevronRight
+                        className="h-3.5 w-3.5 text-muted-foreground"
+                        aria-hidden
+                      />
                     ) : (
-                      <Folder className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                      <Folder
+                        className="h-3.5 w-3.5 text-muted-foreground"
+                        aria-hidden
+                      />
                     )}
                     <button
                       type="button"
@@ -420,9 +426,9 @@ export function StoragePickerDialog({ route, onAuthError }: StoragePickerDialogP
               </nav>
 
               <div className="min-h-0 flex-1 overflow-auto">
-                {!bucket ? (
+                {!bucket && !error ? (
                   <p className="p-4 text-sm text-muted-foreground">{t('emptyBuckets')}</p>
-                ) : (
+                ) : bucket ? (
                   <FileList
                     items={visibleItems}
                     prefix={prefix}
@@ -442,7 +448,10 @@ export function StoragePickerDialog({ route, onAuthError }: StoragePickerDialogP
                     }}
                     renderActions={(item) =>
                       isFolderItem(item) ? (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+                        <ChevronRight
+                          className="h-4 w-4 text-muted-foreground"
+                          aria-hidden
+                        />
                       ) : null
                     }
                     empty={
@@ -451,7 +460,7 @@ export function StoragePickerDialog({ route, onAuthError }: StoragePickerDialogP
                       </p>
                     }
                   />
-                )}
+                ) : null}
               </div>
             </div>
           </div>
@@ -463,7 +472,9 @@ export function StoragePickerDialog({ route, onAuthError }: StoragePickerDialogP
           </div>
           <ul className="min-h-0 flex-1 overflow-auto">
             {picked.length === 0 ? (
-              <li className="px-3 py-3 text-sm text-muted-foreground">{t('pickerSelectedEmpty')}</li>
+              <li className="px-3 py-3 text-sm text-muted-foreground">
+                {t('pickerSelectedEmpty')}
+              </li>
             ) : (
               picked.map((item) => (
                 <li
@@ -471,11 +482,20 @@ export function StoragePickerDialog({ route, onAuthError }: StoragePickerDialogP
                   className="flex items-center gap-2 px-3 py-2 text-sm"
                 >
                   {item.type === 'folder' ? (
-                    <Folder className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+                    <Folder
+                      className="h-4 w-4 shrink-0 text-primary"
+                      aria-hidden
+                    />
                   ) : (
-                    <FileIcon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                    <FileIcon
+                      className="h-4 w-4 shrink-0 text-muted-foreground"
+                      aria-hidden
+                    />
                   )}
-                  <span className="min-w-0 flex-1 truncate" title={item.path || item.name}>
+                  <span
+                    className="min-w-0 flex-1 truncate"
+                    title={item.path || item.name}
+                  >
                     {item.name}
                   </span>
                   <button

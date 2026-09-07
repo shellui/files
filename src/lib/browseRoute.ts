@@ -15,8 +15,7 @@ export type BrowseRoute = {
   folderId: string | null;
 };
 
-const FOLDER_ID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const FOLDER_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function normalizeBrowsePath(path: string): string {
   return path.replace(/^\/+|\/+$/g, '');
@@ -89,9 +88,10 @@ export async function resolveFolderIdForPath(
   }
 
   try {
-    const created = unwrapStorage(
-      await shellui.storage.from(bucket).createFolder(path),
-    ) as { path: string; id?: string };
+    const created = unwrapStorage(await shellui.storage.from(bucket).createFolder(path)) as {
+      path: string;
+      id?: string;
+    };
     if (created.id && isBrowseFolderId(created.id)) return created.id;
   } catch {
     return null;
