@@ -25,13 +25,6 @@ jobs:
         with:
           path: files
 
-      # package.json uses file:../shellui/packages/sdk; Vite compiles SDK from source.
-      - name: Checkout shellui monorepo
-        uses: actions/checkout@v7
-        with:
-          repository: shellui/shellui
-          path: shellui
-
       - name: Install pnpm
         uses: pnpm/action-setup@v6
 
