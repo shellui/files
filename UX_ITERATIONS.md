@@ -14,7 +14,20 @@
 
 **Cycle 1 — next (Cycle 2):** Type-ahead find; breadcrumb truncation for deep paths; richer empty/loading polish; improve arrow-key + selection sync tests.
 
-## Cycle 2 — (pending)
+## Cycle 2 — shipped
+
+**Review:** Deep paths overflow breadcrumbs; no quick “parent folder”; empty folder feels bare; no type-ahead to jump files in large folders.
+
+**Implemented:**
+- Collapsed breadcrumbs for deep paths (`BreadcrumbTrail`).
+- “Up one folder” control beside breadcrumbs.
+- Finder-style type-ahead filter with status bar (`useTypeaheadFind`, `FileFindBar`).
+- Calmer empty folder state with upload / new-folder actions; dedicated no-match state.
+- Tests for find filter.
+
+**Cycle 2 — next (Cycle 3):** List density toggle; full-pane drag-over upload affordance; F2 rename; Space to toggle selection.
+
+## Cycle 3 — (pending)
 
 ## Cycle 3 — (pending)
 

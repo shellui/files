@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### 🛠 Improvements
+
+- **Navigation UX:** Shellui design tokens, history back/forward, sortable columns, keyboard row navigation, dedicated selection bar, sticky list header, and cleaner toolbar chrome.
+
 <!---
 ## [Unreleased] - yyyy-mm-dd
 

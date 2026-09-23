@@ -5,7 +5,7 @@ import { shellui } from '@shellui/sdk';
 import {
   ArrowLeft,
   ArrowRight,
-  ChevronRight,
+  ArrowUp,
   Download,
   Eye,
   File as FileIcon,
@@ -20,11 +20,14 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
+import { BreadcrumbTrail } from '@/components/BreadcrumbTrail';
+import { FileFindBar } from '@/components/FileFindBar';
 import { FileList, dropHighlightClass } from '@/components/FileList';
 import { ItemActions, type ItemAction } from '@/components/ItemActions';
 import { SelectionToolbar } from '@/components/SelectionToolbar';
 import { useFileSelection } from '@/hooks/useFileSelection';
 import { useListKeyboardNav } from '@/hooks/useListKeyboardNav';
+import { filterItemsByPrefix, useTypeaheadFind } from '@/hooks/useTypeaheadFind';
 import { useShelluiAccessSession } from '@/hooks/useShelluiAccessToken';
 import { accessLabelKey } from '@/lib/accessLabel';
 import {
@@ -95,8 +98,14 @@ export function FileManager() {
 
   const sortedItems = useMemo(() => sortListItems(items, sort), [items, sort]);
 
+  const typeahead = useTypeaheadFind(!renamingName && !creatingFolder);
+  const displayItems = useMemo(
+    () => filterItemsByPrefix(sortedItems, typeahead.query),
+    [sortedItems, typeahead.query],
+  );
+
   const selection = useFileSelection({
-    items: sortedItems,
+    items: displayItems,
     listingKey: `${bucket}\0${prefix}`,
     mode: 'multiple',
   });
@@ -946,8 +955,8 @@ export function FileManager() {
   }
 
   const keyboardNav = useListKeyboardNav({
-    items: sortedItems,
-    listingKey: `${bucket}\0${prefix}`,
+    items: displayItems,
+    listingKey: `${bucket}\0${prefix}\0${typeahead.query}`,
     enabled: !renamingName && !creatingFolder,
     onOpen: openItem,
     onDelete: (item) => void handleDelete(item),
@@ -1192,54 +1201,36 @@ export function FileManager() {
             className="flex min-h-10 shrink-0 flex-wrap items-center gap-x-1 gap-y-1 border-b border-border px-4 py-1.5 text-sm sm:px-6"
             aria-label={t('breadcrumb')}
           >
-            <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
-              {crumbs.map((crumb, index) => {
-                const crumbKey = dropTargetKey('crumb', crumb.path);
-                const crumbActive = dropTarget === crumbKey;
-                const crumbAccepts = canWrite && isValidDestForDrag(crumb.path);
-                return (
-                  <span
-                    key={crumb.path || 'root'}
-                    className="inline-flex items-center gap-1"
-                  >
-                    {index > 0 ? (
-                      <ChevronRight
-                        className="h-3.5 w-3.5 text-muted-foreground"
-                        aria-hidden
-                      />
-                    ) : (
-                      <Folder
-                        className="mr-0.5 h-3.5 w-3.5 text-muted-foreground"
-                        aria-hidden
-                      />
-                    )}
-                    <button
-                      type="button"
-                      className={`rounded px-1.5 py-0.5 hover:bg-muted ${
-                        index === crumbs.length - 1 ? 'font-medium' : 'text-muted-foreground'
-                      } ${crumbActive ? dropHighlightClass : ''}`}
-                      onClick={() => {
-                        if (!crumb.path) {
-                          goTo(bucket, null);
-                          return;
-                        }
-                        void goToFolderPath(bucket, crumb.path);
-                      }}
-                      aria-current={index === crumbs.length - 1 ? 'location' : undefined}
-                      onDragOver={
-                        crumbAccepts ? (e) => onDropTargetOver(e, crumbKey, crumb.path) : undefined
-                      }
-                      onDragLeave={crumbAccepts ? (e) => onDropTargetLeave(e, crumbKey) : undefined}
-                      onDrop={
-                        crumbAccepts ? (e) => void handleDropOnPrefix(e, crumb.path) : undefined
-                      }
-                    >
-                      {crumb.label}
-                    </button>
-                  </span>
-                );
-              })}
-            </div>
+            {prefix ? (
+              <button
+                type="button"
+                className="mr-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md hover:bg-muted"
+                title={t('goUp')}
+                aria-label={t('goUp')}
+                onClick={() => {
+                  const parts = prefix.split('/').filter(Boolean);
+                  parts.pop();
+                  const parent = parts.join('/');
+                  if (!parent) goTo(bucket, null);
+                  else void goToFolderPath(bucket, parent);
+                }}
+              >
+                <ArrowUp className="h-4 w-4" />
+              </button>
+            ) : null}
+            <BreadcrumbTrail
+              crumbs={crumbs}
+              onNavigate={(path) => {
+                if (!path) goTo(bucket, null);
+                else void goToFolderPath(bucket, path);
+              }}
+              dropTargetKeyForPath={(path) => dropTargetKey('crumb', path)}
+              activeDropKey={dropTarget}
+              canDropOnCrumb={(path) => canWrite && isValidDestForDrag(path)}
+              onCrumbDragOver={(e, path, key) => onDropTargetOver(e, key, path)}
+              onCrumbDragLeave={(e, key) => onDropTargetLeave(e, key)}
+              onCrumbDrop={(e, path) => void handleDropOnPrefix(e, path)}
+            />
             <div className="flex shrink-0 items-center gap-2">
               {!loading && bucket && items.length > 0 ? (
                 <span className="whitespace-nowrap text-xs text-muted-foreground">
@@ -1274,6 +1265,13 @@ export function FileManager() {
             </div>
           ) : null}
 
+          <FileFindBar
+            query={typeahead.query}
+            matchCount={displayItems.length}
+            totalCount={sortedItems.length}
+            onClear={typeahead.clear}
+          />
+
           <div
             className={`relative min-h-0 flex-1 overflow-auto p-2 transition-colors ${
               dropTarget === dropTargetKey('current', prefix) ? dropHighlightClass : ''
@@ -1297,7 +1295,7 @@ export function FileManager() {
               <p className="p-4 text-sm text-muted-foreground">{t('emptyBuckets')}</p>
             ) : bucket ? (
               <FileList
-                items={sortedItems}
+                items={displayItems}
                 prefix={prefix}
                 loading={loading}
                 selection={selection}
@@ -1313,16 +1311,51 @@ export function FileManager() {
                 accessFallbackAudience={selectedBucket?.access?.audience}
                 accessFallbackDescription={selectedBucket?.access?.description}
                 empty={
-                  <div className="flex min-h-[12rem] flex-col items-center justify-center gap-2 p-6 text-center">
-                    <Upload
-                      className="h-8 w-8 text-muted-foreground/70"
-                      aria-hidden
-                    />
-                    <p className="text-sm text-muted-foreground">{t('emptyBucket')}</p>
-                    {canWrite ? (
-                      <p className="text-xs text-muted-foreground">{t('dropUploadHint')}</p>
-                    ) : null}
-                  </div>
+                  typeahead.query ? (
+                    <div className="flex min-h-[12rem] flex-col items-center justify-center gap-2 p-8 text-center">
+                      <p className="text-sm font-medium">{t('findNoMatches')}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {t('findMatchCount', { match: 0, total: sortedItems.length })}
+                      </p>
+                      <button
+                        type="button"
+                        className="mt-2 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted"
+                        onClick={typeahead.clear}
+                      >
+                        {t('findClear')}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex min-h-[14rem] flex-col items-center justify-center gap-3 p-8 text-center">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-muted">
+                        <FolderOpen className="h-7 w-7 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{t('emptyBucket')}</p>
+                        {canWrite ? (
+                          <p className="mt-1 text-xs text-muted-foreground">{t('dropUploadHint')}</p>
+                        ) : null}
+                      </div>
+                      {canWrite ? (
+                        <div className="flex flex-wrap justify-center gap-2">
+                          <button
+                            type="button"
+                            className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            {t('upload')}
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted"
+                            onClick={() => setCreatingFolder(true)}
+                          >
+                            {t('createFolder')}
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  )
                 }
                 dnd={
                   canWrite
