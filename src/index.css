@@ -3,47 +3,49 @@
 @tailwind utilities;
 
 :root {
-  --radius: 0.5rem;
+  --radius: 0.75rem;
   --background: #ffffff;
-  --foreground: #0a0a0a;
+  --foreground: #111827;
   --card: #ffffff;
-  --card-foreground: #0a0a0a;
-  --primary: #171717;
-  --primary-foreground: #fafafa;
-  --secondary: #f5f5f5;
-  --secondary-foreground: #171717;
-  --muted: #f5f5f5;
-  --muted-foreground: #737373;
-  --accent: #f5f5f5;
-  --accent-foreground: #171717;
+  --card-foreground: #111827;
+  --primary: #e3a512;
+  --primary-foreground: #1a1408;
+  --primary-ink: #c4920a;
+  --secondary: #f9fafb;
+  --secondary-foreground: #111827;
+  --muted: #f9fafb;
+  --muted-foreground: #4b5563;
+  --accent: #f3f4f6;
+  --accent-foreground: #111827;
   --destructive: #dc2626;
   --destructive-foreground: #fafafa;
-  --border: #e5e5e5;
-  --input: #e5e5e5;
-  --ring: #0a0a0a;
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: #e3a512;
   --font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-body: var(--font-family);
   --font-heading: var(--font-family);
 }
 
 .dark {
-  --background: #0a0a0a;
-  --foreground: #fafafa;
-  --card: #171717;
-  --card-foreground: #fafafa;
-  --primary: #fafafa;
-  --primary-foreground: #171717;
-  --secondary: #262626;
-  --secondary-foreground: #fafafa;
-  --muted: #262626;
-  --muted-foreground: #a3a3a3;
-  --accent: #262626;
-  --accent-foreground: #fafafa;
+  --background: #030712;
+  --foreground: #f9fafb;
+  --card: #111827;
+  --card-foreground: #f9fafb;
+  --primary: #e8b84a;
+  --primary-foreground: #1a1408;
+  --primary-ink: #e8b84a;
+  --secondary: rgb(255 255 255 / 0.05);
+  --secondary-foreground: #f9fafb;
+  --muted: rgb(255 255 255 / 0.05);
+  --muted-foreground: #9ca3af;
+  --accent: rgb(255 255 255 / 0.08);
+  --accent-foreground: #f9fafb;
   --destructive: #ef4444;
   --destructive-foreground: #fafafa;
-  --border: #262626;
-  --input: #262626;
-  --ring: #d4d4d4;
+  --border: #1f2937;
+  --input: #1f2937;
+  --ring: #e8b84a;
 }
 
 * {
@@ -159,4 +161,17 @@ body {
 
 .file-list-row-drop > td {
   background-color: color-mix(in srgb, var(--primary) 10%, var(--background));
+}
+
+.file-list-row-focus > td {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+.file-list-sticky-head {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: var(--background);
+  box-shadow: 0 1px 0 var(--border);
 }

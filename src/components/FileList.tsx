@@ -1,6 +1,7 @@
 import { useEffect, useRef, type DragEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { File as FileIcon, Folder } from 'lucide-react';
+import { ArrowDown, ArrowUp, File as FileIcon, Folder } from 'lucide-react';
+import type { SortField, SortState } from '@/lib/listSort';
 import type { FileSelection } from '@/hooks/useFileSelection';
 import { accessRowLabel } from '@/lib/accessLabel';
 import { dropTargetKey, type DragItemPayload } from '@/lib/dnd';
@@ -57,6 +58,11 @@ export type FileListProps = {
   renamingIsFolder?: boolean;
   /** When set, only these items show a checkbox / participate in select-all. */
   canSelectItem?: (item: StorageListItem) => boolean;
+  sort?: SortState;
+  onSortField?: (field: SortField) => void;
+  focusIndex?: number;
+  onRowFocus?: (index: number) => void;
+  stickyHeader?: boolean;
 };
 
 function modifierSelectEvent(e: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean }) {
@@ -89,7 +95,43 @@ type FileListHeaderProps = {
   allSelectableSelected: boolean;
   someSelectableSelected: boolean;
   onToggleSelectAll: () => void;
+  sort?: SortState;
+  onSortField?: (field: SortField) => void;
+  stickyHeader?: boolean;
 };
+
+function SortHeaderButton({
+  field,
+  label,
+  sort,
+  onSortField,
+}: {
+  field: SortField;
+  label: string;
+  sort?: SortState;
+  onSortField?: (field: SortField) => void;
+}) {
+  const active = sort?.field === field;
+  const Icon = sort?.direction === 'desc' ? ArrowDown : ArrowUp;
+  if (!onSortField) {
+    return <span>{label}</span>;
+  }
+  return (
+    <button
+      type="button"
+      className={`inline-flex items-center gap-0.5 rounded px-1 py-0.5 -mx-1 hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        active ? 'text-foreground' : ''
+      }`}
+      onClick={() => onSortField(field)}
+      aria-sort={
+        active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'
+      }
+    >
+      {label}
+      {active ? <Icon className="h-3 w-3 shrink-0" aria-hidden /> : null}
+    </button>
+  );
+}
 
 function FileListHeader({
   loading,
@@ -103,12 +145,15 @@ function FileListHeader({
   allSelectableSelected,
   someSelectableSelected,
   onToggleSelectAll,
+  sort,
+  onSortField,
+  stickyHeader,
 }: FileListHeaderProps) {
   const { t } = useTranslation();
 
   return (
     <thead
-      className={`text-xs uppercase text-muted-foreground ${loading ? 'pointer-events-none opacity-50' : ''}`}
+      className={`text-xs text-muted-foreground ${stickyHeader ? 'file-list-sticky-head' : ''} ${loading ? 'pointer-events-none opacity-50' : ''}`}
     >
       <tr className="file-list-row">
         {canSelect ? (
@@ -131,25 +176,47 @@ function FileListHeader({
             )}
           </th>
         ) : null}
-        <th className="w-full max-w-0 px-3 py-2 font-medium">{t('name')}</th>
+        <th className="w-full max-w-0 px-3 py-2 font-medium tracking-wide">
+          <SortHeaderButton
+            field="name"
+            label={t('name')}
+            sort={sort}
+            onSortField={onSortField}
+          />
+        </th>
         {showAccess ? (
-          <th className="hidden whitespace-nowrap px-3 py-2 font-medium lg:table-cell">
+          <th className="hidden whitespace-nowrap px-3 py-2 font-medium tracking-wide lg:table-cell">
             {t('access')}
           </th>
         ) : null}
         {showType ? (
-          <th className="hidden whitespace-nowrap px-3 py-2 font-medium xl:table-cell">
-            {t('type')}
+          <th className="hidden whitespace-nowrap px-3 py-2 font-medium tracking-wide xl:table-cell">
+            <SortHeaderButton
+              field="type"
+              label={t('type')}
+              sort={sort}
+              onSortField={onSortField}
+            />
           </th>
         ) : null}
         {showSize ? (
-          <th className="hidden whitespace-nowrap px-3 py-2 font-medium md:table-cell">
-            {t('size')}
+          <th className="hidden whitespace-nowrap px-3 py-2 font-medium tracking-wide md:table-cell">
+            <SortHeaderButton
+              field="size"
+              label={t('size')}
+              sort={sort}
+              onSortField={onSortField}
+            />
           </th>
         ) : null}
         {showModified ? (
-          <th className="hidden whitespace-nowrap px-3 py-2 font-medium lg:table-cell">
-            {t('modified')}
+          <th className="hidden whitespace-nowrap px-3 py-2 font-medium tracking-wide lg:table-cell">
+            <SortHeaderButton
+              field="modified"
+              label={t('modified')}
+              sort={sort}
+              onSortField={onSortField}
+            />
           </th>
         ) : null}
         {showActions ? (
@@ -259,6 +326,11 @@ export function FileList({
   renamingName,
   renamingIsFolder,
   canSelectItem,
+  sort,
+  onSortField,
+  focusIndex = -1,
+  onRowFocus,
+  stickyHeader = false,
 }: FileListProps) {
   const { t } = useTranslation();
   const suppressClickRef = useRef(false);
@@ -319,6 +391,9 @@ export function FileList({
         allSelectableSelected={allSelectableSelected}
         someSelectableSelected={someSelectableSelected}
         onToggleSelectAll={toggleSelectAll}
+        sort={sort}
+        onSortField={onSortField}
+        stickyHeader={stickyHeader}
       />
       {loading ? (
         <FileListSkeletonBody
@@ -333,7 +408,7 @@ export function FileList({
         />
       ) : (
         <tbody>
-          {items.map((item) => {
+          {items.map((item, rowIndex) => {
             const isFolder = isFolderItem(item);
             const path = joinPath(prefix, item.name);
             const busy = busyName === path || busyName === '__bulk__';
@@ -348,14 +423,16 @@ export function FileList({
             const canDrag = Boolean(dnd?.enabled) && !renaming;
 
             const itemSelectable = canSelectItem ? canSelectItem(item) : true;
+            const rowFocused = focusIndex === rowIndex;
 
             return (
               <tr
                 key={fileItemKey(item)}
                 aria-selected={selected}
+                data-row-index={rowIndex}
                 className={`file-list-row ${selected ? 'file-list-row-selected' : ''} ${
-                  folderDropActive ? 'file-list-row-drop' : ''
-                } ${rowDragging ? 'opacity-50' : ''} ${
+                  rowFocused ? 'file-list-row-focus' : ''
+                } ${folderDropActive ? 'file-list-row-drop' : ''} ${rowDragging ? 'opacity-50' : ''} ${
                   canDrag
                     ? 'cursor-grab active:cursor-grabbing'
                     : canSelect && itemSelectable
@@ -367,11 +444,18 @@ export function FileList({
                   if (suppressClickRef.current) return;
                   const target = e.target as HTMLElement;
                   if (target.closest('button, a, input, label, [data-no-select]')) return;
+                  onRowFocus?.(rowIndex);
                   if (canSelect && itemSelectable) {
                     selection.select(item, modifierSelectEvent(e));
                     return;
                   }
                   if (isFolder) onOpen(item);
+                }}
+                onDoubleClick={(e) => {
+                  const target = e.target as HTMLElement;
+                  if (target.closest('button, a, input, label, [data-no-select]')) return;
+                  e.preventDefault();
+                  onOpen(item);
                 }}
                 onDragStart={
                   dnd?.enabled && !renaming

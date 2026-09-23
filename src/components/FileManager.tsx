@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import { shellui } from '@shellui/sdk';
 import {
+  ArrowLeft,
+  ArrowRight,
   ChevronRight,
   Download,
   Eye,
@@ -22,6 +24,7 @@ import { FileList, dropHighlightClass } from '@/components/FileList';
 import { ItemActions, type ItemAction } from '@/components/ItemActions';
 import { SelectionToolbar } from '@/components/SelectionToolbar';
 import { useFileSelection } from '@/hooks/useFileSelection';
+import { useListKeyboardNav } from '@/hooks/useListKeyboardNav';
 import { useShelluiAccessSession } from '@/hooks/useShelluiAccessToken';
 import { accessLabelKey } from '@/lib/accessLabel';
 import {
@@ -55,6 +58,7 @@ import {
   type Bucket,
   type StorageListItem,
 } from '@/lib/storageApi';
+import { sortListItems, toggleSortField, type SortState } from '@/lib/listSort';
 import { buildViewerModalUrl } from '@/lib/viewerRoute';
 
 export function FileManager() {
@@ -87,9 +91,12 @@ export function FileManager() {
   const hoverNavPathRef = useRef<string | null>(null);
 
   const HOVER_OPEN_MS = 700;
+  const [sort, setSort] = useState<SortState>({ field: 'name', direction: 'asc' });
+
+  const sortedItems = useMemo(() => sortListItems(items, sort), [items, sort]);
 
   const selection = useFileSelection({
-    items,
+    items: sortedItems,
     listingKey: `${bucket}\0${prefix}`,
     mode: 'multiple',
   });
@@ -938,6 +945,15 @@ export function FileManager() {
     else openViewer(item);
   }
 
+  const keyboardNav = useListKeyboardNav({
+    items: sortedItems,
+    listingKey: `${bucket}\0${prefix}`,
+    enabled: !renamingName && !creatingFolder,
+    onOpen: openItem,
+    onDelete: (item) => void handleDelete(item),
+    selection,
+  });
+
   function actionsForItem(item: StorageListItem): ItemAction[] {
     const isFolder = isFolderItem(item);
     const renaming = renamingName === item.name && renamingIsFolder === isFolder;
@@ -1030,34 +1046,57 @@ export function FileManager() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <header className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
-        <h1 className="font-heading text-lg font-semibold">{t('appTitle')}</h1>
-        <span className="text-xs text-muted-foreground">
-          {t('storageUrl')}: {shellui.initialSettings?.storage?.url ?? ''}
-        </span>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
+      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2.5 sm:px-6">
+        <h1 className="font-heading text-base font-semibold tracking-tight sm:text-lg">
+          {t('appTitle')}
+        </h1>
+        {selectedBucket ? (
+          <span className="hidden text-sm text-muted-foreground sm:inline">
+            {selectedBucket.display_name || bucket}
+          </span>
+        ) : null}
+        <div className="ml-auto flex flex-wrap items-center gap-1.5">
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm hover:bg-accent"
-            onClick={() => void loadObjects()}
-            disabled={loading}
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-sm hover:bg-accent disabled:opacity-40"
+            onClick={() => navigate(-1)}
+            title={t('goBack')}
+            aria-label={t('goBack')}
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            {t('refresh')}
+            <ArrowLeft className="h-4 w-4" />
           </button>
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-sm hover:bg-accent disabled:opacity-40"
+            onClick={() => navigate(1)}
+            title={t('goForward')}
+            aria-label={t('goForward')}
+          >
+            <ArrowRight className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-sm hover:bg-accent"
+            onClick={() => void loadObjects()}
+            disabled={loading}
+            title={t('refresh')}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{t('refresh')}</span>
+          </button>
+          <button
+            type="button"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-sm hover:bg-accent disabled:opacity-50"
             onClick={() => setCreatingFolder((v) => !v)}
             disabled={!bucket || !canWrite}
             title={!canWrite ? t('readOnlyLocation') : undefined}
           >
             <FolderPlus className="h-3.5 w-3.5" />
-            {t('createFolder')}
+            <span className="hidden sm:inline">{t('createFolder')}</span>
           </button>
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
             onClick={() => fileInputRef.current?.click()}
             disabled={!bucket || !canWrite}
             title={!canWrite ? t('readOnlyLocation') : undefined}
@@ -1123,10 +1162,8 @@ export function FileManager() {
 
       <div className="flex min-h-0 flex-1">
         {showLocations ? (
-          <aside className="w-52 shrink-0 border-r border-border bg-card/40 p-3">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {t('locations')}
-            </div>
+          <aside className="hidden w-52 shrink-0 border-r border-border bg-muted/30 p-3 md:block">
+            <div className="mb-2 text-xs font-medium text-muted-foreground">{t('locations')}</div>
             <ul className="space-y-1">
               {buckets.map((b) => (
                 <li key={b.name}>
@@ -1152,10 +1189,10 @@ export function FileManager() {
 
         <main className="flex min-w-0 flex-1 flex-col">
           <nav
-            className="flex h-10 shrink-0 items-center gap-1 overflow-hidden border-b border-border px-4 text-sm"
+            className="flex min-h-10 shrink-0 flex-wrap items-center gap-x-1 gap-y-1 border-b border-border px-4 py-1.5 text-sm sm:px-6"
             aria-label={t('breadcrumb')}
           >
-            <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
+            <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
               {crumbs.map((crumb, index) => {
                 const crumbKey = dropTargetKey('crumb', crumb.path);
                 const crumbActive = dropTarget === crumbKey;
@@ -1203,9 +1240,18 @@ export function FileManager() {
                 );
               })}
             </div>
-            <div className="ml-auto flex h-7 shrink-0 items-center">
-              {selection.selectedCount > 0 ? (
-                <SelectionToolbar
+            <div className="flex shrink-0 items-center gap-2">
+              {!loading && bucket && items.length > 0 ? (
+                <span className="whitespace-nowrap text-xs text-muted-foreground">
+                  {t('itemCount', { count: items.length })}
+                </span>
+              ) : null}
+            </div>
+          </nav>
+
+          {selection.selectedCount > 0 ? (
+            <div className="flex shrink-0 items-center border-b border-border bg-muted/40 px-4 py-1.5 sm:px-6">
+              <SelectionToolbar
                   count={selection.selectedCount}
                   canWrite={canWrite}
                   grantsEnabled={grantsEnabled}
@@ -1216,16 +1262,17 @@ export function FileManager() {
                     grantsEnabled ? () => openPermissionsFor(selection.selectedItems) : undefined
                   }
                 />
-              ) : selectedBucket?.access ? (
-                <span
-                  className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground"
-                  title={selectedBucket.access.description}
-                >
-                  {t(accessLabelKey(selectedBucket.access.audience))}
-                </span>
-              ) : null}
             </div>
-          </nav>
+          ) : selectedBucket?.access ? (
+            <div className="flex shrink-0 items-center border-b border-border px-4 py-1 sm:px-6">
+              <span
+                className="text-xs text-muted-foreground"
+                title={selectedBucket.access.description}
+              >
+                {t(accessLabelKey(selectedBucket.access.audience))}
+              </span>
+            </div>
+          ) : null}
 
           <div
             className={`relative min-h-0 flex-1 overflow-auto p-2 transition-colors ${
@@ -1250,11 +1297,16 @@ export function FileManager() {
               <p className="p-4 text-sm text-muted-foreground">{t('emptyBuckets')}</p>
             ) : bucket ? (
               <FileList
-                items={items}
+                items={sortedItems}
                 prefix={prefix}
                 loading={loading}
                 selection={selection}
                 onOpen={openItem}
+                sort={sort}
+                onSortField={(field) => setSort((current) => toggleSortField(current, field))}
+                focusIndex={keyboardNav.focusIndex}
+                onRowFocus={keyboardNav.focusItem}
+                stickyHeader
                 busyName={busyName}
                 renamingName={renamingName}
                 renamingIsFolder={renamingIsFolder}
