@@ -976,9 +976,7 @@ export function FileManager() {
     enabled: !renamingName && !creatingFolder,
     onOpen: openItem,
     onDelete: (item) => void handleDelete(item),
-    onRename: canWrite
-      ? (item) => startRename(item.name, isFolderItem(item))
-      : undefined,
+    onRename: canWrite ? (item) => startRename(item.name, isFolderItem(item)) : undefined,
     onGoUp: prefix ? goUpOneFolder : undefined,
     selection,
   });
@@ -1278,16 +1276,16 @@ export function FileManager() {
           {selection.selectedCount > 0 ? (
             <div className="flex shrink-0 items-center border-b border-border bg-muted/40 px-4 py-1.5 sm:px-6">
               <SelectionToolbar
-                  count={selection.selectedCount}
-                  canWrite={canWrite}
-                  grantsEnabled={grantsEnabled}
-                  busy={busyName === '__bulk__'}
-                  onClear={selection.clear}
-                  onDelete={canWrite ? () => void handleDeleteSelected() : undefined}
-                  onPermissions={
-                    grantsEnabled ? () => openPermissionsFor(selection.selectedItems) : undefined
-                  }
-                />
+                count={selection.selectedCount}
+                canWrite={canWrite}
+                grantsEnabled={grantsEnabled}
+                busy={busyName === '__bulk__'}
+                onClear={selection.clear}
+                onDelete={canWrite ? () => void handleDeleteSelected() : undefined}
+                onPermissions={
+                  grantsEnabled ? () => openPermissionsFor(selection.selectedItems) : undefined
+                }
+              />
             </div>
           ) : selectedBucket?.access ? (
             <div className="flex shrink-0 items-center border-b border-border px-4 py-1 sm:px-6">
@@ -1331,10 +1329,7 @@ export function FileManager() {
                 ? (e) => {
                     onListDragLeave(e);
                     if (isInternalFileDrag(e.dataTransfer)) return;
-                    externalDragDepthRef.current = Math.max(
-                      0,
-                      externalDragDepthRef.current - 1,
-                    );
+                    externalDragDepthRef.current = Math.max(0, externalDragDepthRef.current - 1);
                     if (externalDragDepthRef.current === 0) setExternalFileDrag(false);
                   }
                 : undefined
@@ -1401,7 +1396,9 @@ export function FileManager() {
                       <div>
                         <p className="text-sm font-medium">{t('emptyBucket')}</p>
                         {canWrite ? (
-                          <p className="mt-1 text-xs text-muted-foreground">{t('dropUploadHint')}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {t('dropUploadHint')}
+                          </p>
                         ) : null}
                       </div>
                       {canWrite ? (

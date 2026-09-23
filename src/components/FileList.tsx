@@ -125,12 +125,15 @@ function SortHeaderButton({
         active ? 'text-foreground' : ''
       }`}
       onClick={() => onSortField(field)}
-      aria-sort={
-        active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'
-      }
+      aria-sort={active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
     >
       {label}
-      {active ? <Icon className="h-3 w-3 shrink-0" aria-hidden /> : null}
+      {active ? (
+        <Icon
+          className="h-3 w-3 shrink-0"
+          aria-hidden
+        />
+      ) : null}
     </button>
   );
 }

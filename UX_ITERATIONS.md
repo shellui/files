@@ -5,6 +5,7 @@
 **Review (weak spots):** Neutral gray tokens instead of Shellui honey gold; storage URL in the header; no history back/forward; no column sort; cramped bulk actions in the breadcrumb row; no keyboard row focus; sidebar “LOCATIONS” shouty uppercase.
 
 **Implemented:**
+
 - Shellui-aligned light/dark CSS tokens (gray canvas, honey gold primary/ring).
 - Cleaner header toolbar with back/forward (React Router history), compact actions, no storage URL in chrome.
 - Sortable columns (name, type, size, modified) with folders-first ordering.
@@ -19,6 +20,7 @@
 **Review:** Deep paths overflow breadcrumbs; no quick “parent folder”; empty folder feels bare; no type-ahead to jump files in large folders.
 
 **Implemented:**
+
 - Collapsed breadcrumbs for deep paths (`BreadcrumbTrail`).
 - “Up one folder” control beside breadcrumbs.
 - Finder-style type-ahead filter with status bar (`useTypeaheadFind`, `FileFindBar`).
@@ -32,6 +34,7 @@
 **Review:** Large folders need tighter density; external file drag is easy to miss; power users expect F2 rename and Space to toggle selection.
 
 **Implemented:**
+
 - Comfortable / compact density toggle (persisted in `localStorage`).
 - Full-pane dashed overlay when dragging files from the OS.
 - F2 rename and Space to toggle selection on focused row.
@@ -44,6 +47,7 @@
 **Review:** Refresh flashes skeleton over existing rows; errors have no recovery; parent navigation lacks a keyboard chord; shortcuts are undiscoverable.
 
 **Implemented:**
+
 - Stale-while-revalidate listing (keep rows visible, dim while refreshing).
 - Error banner with “Try again”.
 - Alt+↑ to go to parent folder; shared with the up button.

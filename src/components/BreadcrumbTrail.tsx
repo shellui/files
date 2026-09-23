@@ -74,9 +74,7 @@ function CrumbButton({
             ? (e) => onCrumbDragLeave(e, dropKey)
             : undefined
         }
-        onDrop={
-          acceptsDrop && onCrumbDrop ? (e) => void onCrumbDrop(e, crumb.path) : undefined
-        }
+        onDrop={acceptsDrop && onCrumbDrop ? (e) => void onCrumbDrop(e, crumb.path) : undefined}
       >
         {crumb.label}
       </button>
@@ -143,8 +141,8 @@ export function BreadcrumbTrail({
             isLast={index === crumbs.length - 1}
             active={Boolean(
               dropTargetKeyForPath &&
-                activeDropKey &&
-                dropTargetKeyForPath(crumb.path) === activeDropKey,
+              activeDropKey &&
+              dropTargetKeyForPath(crumb.path) === activeDropKey,
             )}
             acceptsDrop={canDropOnCrumb?.(crumb.path) ?? false}
             onNavigate={onNavigate}

@@ -11,10 +11,7 @@ type UseListKeyboardNavOptions = {
   onGoUp?: () => void;
   selection: {
     isSelected: (item: StorageListItem) => boolean;
-    select: (
-      item: StorageListItem,
-      event?: { additive?: boolean; range?: boolean },
-    ) => void;
+    select: (item: StorageListItem, event?: { additive?: boolean; range?: boolean }) => void;
     clear: () => void;
     selectedItems: StorageListItem[];
   };

@@ -34,7 +34,11 @@ export const demoItems = [
   {
     name: 'Brand guidelines.pdf',
     id: 'file-brand',
-    metadata: { size: 2_450_000, mimetype: 'application/pdf', lastModified: '2026-03-01T10:00:00Z' },
+    metadata: {
+      size: 2_450_000,
+      mimetype: 'application/pdf',
+      lastModified: '2026-03-01T10:00:00Z',
+    },
     updated_at: '2026-03-01T10:00:00Z',
   },
   {
