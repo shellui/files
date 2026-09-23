@@ -31,6 +31,7 @@ import { useListKeyboardNav } from '@/hooks/useListKeyboardNav';
 import { useListDensity } from '@/hooks/useListDensity';
 import { filterItemsByPrefix, useTypeaheadFind } from '@/hooks/useTypeaheadFind';
 import { DropUploadOverlay } from '@/components/DropUploadOverlay';
+import { KeyboardHintsFooter } from '@/components/KeyboardHintsFooter';
 import { useShelluiAccessSession } from '@/hooks/useShelluiAccessToken';
 import { accessLabelKey } from '@/lib/accessLabel';
 import {
@@ -960,6 +961,15 @@ export function FileManager() {
     else openViewer(item);
   }
 
+  const goUpOneFolder = useCallback(() => {
+    if (!prefix) return;
+    const parts = prefix.split('/').filter(Boolean);
+    parts.pop();
+    const parent = parts.join('/');
+    if (!parent) goTo(bucket, null);
+    else void goToFolderPath(bucket, parent);
+  }, [prefix, bucket, goTo, goToFolderPath]);
+
   const keyboardNav = useListKeyboardNav({
     items: displayItems,
     listingKey: `${bucket}\0${prefix}\0${typeahead.query}`,
@@ -969,6 +979,7 @@ export function FileManager() {
     onRename: canWrite
       ? (item) => startRename(item.name, isFolderItem(item))
       : undefined,
+    onGoUp: prefix ? goUpOneFolder : undefined,
     selection,
   });
 
@@ -1177,8 +1188,19 @@ export function FileManager() {
       ) : null}
 
       {error ? (
-        <div className="border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive">
-          {error}
+        <div className="flex flex-wrap items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive sm:px-6">
+          <span className="min-w-0 flex-1">{error}</span>
+          <button
+            type="button"
+            className="shrink-0 rounded-md border border-destructive/40 px-2.5 py-1 text-xs font-medium hover:bg-destructive/10"
+            onClick={() => {
+              setError(null);
+              void loadBuckets();
+              void loadObjects();
+            }}
+          >
+            {t('retry')}
+          </button>
         </div>
       ) : null}
 
@@ -1226,13 +1248,7 @@ export function FileManager() {
                 className="mr-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md hover:bg-muted"
                 title={t('goUp')}
                 aria-label={t('goUp')}
-                onClick={() => {
-                  const parts = prefix.split('/').filter(Boolean);
-                  parts.pop();
-                  const parent = parts.join('/');
-                  if (!parent) goTo(bucket, null);
-                  else void goToFolderPath(bucket, parent);
-                }}
+                onClick={goUpOneFolder}
               >
                 <ArrowUp className="h-4 w-4" />
               </button>
@@ -1476,6 +1492,7 @@ export function FileManager() {
           </div>
         </main>
       </div>
+      <KeyboardHintsFooter />
     </div>
   );
 }

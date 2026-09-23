@@ -27,8 +27,33 @@
 
 **Cycle 2 — next (Cycle 3):** List density toggle; full-pane drag-over upload affordance; F2 rename; Space to toggle selection.
 
-## Cycle 3 — (pending)
+## Cycle 3 — shipped
 
-## Cycle 3 — (pending)
+**Review:** Large folders need tighter density; external file drag is easy to miss; power users expect F2 rename and Space to toggle selection.
 
-## Cycle 4 — (pending)
+**Implemented:**
+- Comfortable / compact density toggle (persisted in `localStorage`).
+- Full-pane dashed overlay when dragging files from the OS.
+- F2 rename and Space to toggle selection on focused row.
+- Auto-scroll focused row into view.
+
+**Cycle 3 — next (Cycle 4):** Error retry affordance; Alt+Up parent navigation; keyboard shortcut hints; final visual polish.
+
+## Cycle 4 — shipped (+ final polish)
+
+**Review:** Refresh flashes skeleton over existing rows; errors have no recovery; parent navigation lacks a keyboard chord; shortcuts are undiscoverable.
+
+**Implemented:**
+- Stale-while-revalidate listing (keep rows visible, dim while refreshing).
+- Error banner with “Try again”.
+- Alt+↑ to go to parent folder; shared with the up button.
+- Keyboard hints footer (desktop).
+- `KeyboardHintsFooter` and error retry i18n.
+
+## Remaining backlog (frontend, not in this PR)
+
+- Virtualized rows when list limits increase beyond ~200 items.
+- Grid / gallery view toggle.
+- Sidebar folder tree (needs lazy tree API or client cache strategy).
+- Recent / pinned folders (localStorage + navigation history).
+- Bulk move from selection toolbar (modal already exists per-item).

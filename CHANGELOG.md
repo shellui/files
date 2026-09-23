@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### 🛠 Improvements
 
-- **Navigation UX:** Shellui design tokens, history back/forward, sortable columns, keyboard row navigation, dedicated selection bar, sticky list header, and cleaner toolbar chrome.
+- **Navigation UX:** Shellui design tokens, history back/forward, sortable columns, keyboard row navigation (arrows, Enter, Space, F2, Alt+↑, Delete), type-ahead find, collapsed breadcrumbs, list density toggle, drag-upload overlay, dedicated selection bar, sticky list header, stale-while-revalidate refresh, error retry, and cleaner toolbar chrome.
 
 <!---
 ## [Unreleased] - yyyy-mm-dd

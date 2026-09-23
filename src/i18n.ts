@@ -97,6 +97,9 @@ const resources = {
       densityToggle: 'Toggle list density',
       densityComfortable: 'Comfortable',
       densityCompact: 'Compact',
+      retry: 'Try again',
+      keyboardHints:
+        '↑↓ navigate · Enter open · Space select · F2 rename · ⌘A select all · Type to find · Alt↑ up folder',
       storageUrl: 'Storage',
       open: 'Open',
       permissions: 'Permissions',
@@ -317,6 +320,9 @@ const resources = {
       densityToggle: 'Densité de la liste',
       densityComfortable: 'Confortable',
       densityCompact: 'Compact',
+      retry: 'Réessayer',
+      keyboardHints:
+        '↑↓ naviguer · Entrée ouvrir · Espace sélectionner · F2 renommer · ⌘A tout sélectionner · Saisie pour filtrer · Alt↑ dossier parent',
       storageUrl: 'Stockage',
       open: 'Ouvrir',
       permissions: 'Permissions',

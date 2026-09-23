@@ -372,6 +372,8 @@ export function FileList({
     };
   }, []);
 
+  const showSkeleton = loading && items.length === 0;
+
   if (!loading && items.length === 0) {
     return empty ?? null;
   }
@@ -393,7 +395,7 @@ export function FileList({
       aria-busy={loading || undefined}
     >
       <FileListHeader
-        loading={loading}
+        loading={showSkeleton}
         canSelect={canSelect}
         selectionMode={selection.mode}
         showAccess={showAccess}
@@ -408,7 +410,7 @@ export function FileList({
         onSortField={onSortField}
         stickyHeader={stickyHeader}
       />
-      {loading ? (
+      {showSkeleton ? (
         <FileListSkeletonBody
           rowCount={SKELETON_ROW_COUNT}
           canSelect={canSelect}
@@ -420,7 +422,11 @@ export function FileList({
           loadingLabel={t('loading')}
         />
       ) : (
-        <tbody ref={tbodyRef}>
+        <tbody
+          ref={tbodyRef}
+          className={loading && items.length > 0 ? 'opacity-60' : undefined}
+          aria-busy={loading || undefined}
+        >
           {items.map((item, rowIndex) => {
             const isFolder = isFolderItem(item);
             const path = joinPath(prefix, item.name);

@@ -8,6 +8,7 @@ type UseListKeyboardNavOptions = {
   onOpen: (item: StorageListItem) => void;
   onDelete?: (item: StorageListItem) => void;
   onRename?: (item: StorageListItem) => void;
+  onGoUp?: () => void;
   selection: {
     isSelected: (item: StorageListItem) => boolean;
     select: (
@@ -37,6 +38,7 @@ export function useListKeyboardNav({
   onOpen,
   onDelete,
   onRename,
+  onGoUp,
   selection,
 }: UseListKeyboardNavOptions) {
   const [focusIndex, setFocusIndex] = useState<number>(-1);
@@ -69,6 +71,11 @@ export function useListKeyboardNav({
     function onKeyDown(e: KeyboardEvent) {
       if (isEditableTarget(e.target)) return;
 
+      if (e.key === 'ArrowUp' && e.altKey && onGoUp) {
+        e.preventDefault();
+        onGoUp();
+        return;
+      }
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         moveFocus(1);
@@ -109,7 +116,7 @@ export function useListKeyboardNav({
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [enabled, focusIndex, items, moveFocus, onDelete, onOpen, onRename, selection]);
+  }, [enabled, focusIndex, items, moveFocus, onDelete, onGoUp, onOpen, onRename, selection]);
 
   const focusItem = useCallback((index: number) => {
     setFocusIndex(index);
