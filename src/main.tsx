@@ -8,11 +8,24 @@ import { getAppearanceFromSettings, applyThemeToDocument } from '@/lib/theme';
 import { isEmbeddedInShell } from '@/lib/embed';
 import { StandaloneNotice } from '@/components/StandaloneNotice';
 import { App } from '@/App';
+import { FilesPreviewRoutes } from '@/preview/FilesPreviewApp';
 import i18n, { i18nInit } from '@/i18n';
 import '@/index.css';
 
 async function bootstrap() {
   await i18nInit;
+
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1') {
+    applyThemeToDocument(null);
+    createRoot(document.getElementById('root')!).render(
+      <StrictMode>
+        <LangProvider>
+          <FilesPreviewRoutes />
+        </LangProvider>
+      </StrictMode>,
+    );
+    return;
+  }
 
   if (!isEmbeddedInShell()) {
     await i18n.changeLanguage(i18n.language || 'en');
