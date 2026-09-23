@@ -18,6 +18,7 @@ import {
   RefreshCw,
   Shield,
   Trash2,
+  Rows3,
   Upload,
 } from 'lucide-react';
 import { BreadcrumbTrail } from '@/components/BreadcrumbTrail';
@@ -27,7 +28,9 @@ import { ItemActions, type ItemAction } from '@/components/ItemActions';
 import { SelectionToolbar } from '@/components/SelectionToolbar';
 import { useFileSelection } from '@/hooks/useFileSelection';
 import { useListKeyboardNav } from '@/hooks/useListKeyboardNav';
+import { useListDensity } from '@/hooks/useListDensity';
 import { filterItemsByPrefix, useTypeaheadFind } from '@/hooks/useTypeaheadFind';
+import { DropUploadOverlay } from '@/components/DropUploadOverlay';
 import { useShelluiAccessSession } from '@/hooks/useShelluiAccessToken';
 import { accessLabelKey } from '@/lib/accessLabel';
 import {
@@ -95,6 +98,9 @@ export function FileManager() {
 
   const HOVER_OPEN_MS = 700;
   const [sort, setSort] = useState<SortState>({ field: 'name', direction: 'asc' });
+  const { density, toggle: toggleDensity } = useListDensity();
+  const [externalFileDrag, setExternalFileDrag] = useState(false);
+  const externalDragDepthRef = useRef(0);
 
   const sortedItems = useMemo(() => sortListItems(items, sort), [items, sort]);
 
@@ -960,6 +966,9 @@ export function FileManager() {
     enabled: !renamingName && !creatingFolder,
     onOpen: openItem,
     onDelete: (item) => void handleDelete(item),
+    onRename: canWrite
+      ? (item) => startRename(item.name, isFolderItem(item))
+      : undefined,
     selection,
   });
 
@@ -1082,6 +1091,16 @@ export function FileManager() {
             aria-label={t('goForward')}
           >
             <ArrowRight className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-sm hover:bg-accent"
+            onClick={toggleDensity}
+            title={t('densityToggle')}
+            aria-label={t('densityToggle')}
+            aria-pressed={density === 'compact'}
+          >
+            <Rows3 className="h-4 w-4" />
           </button>
           <button
             type="button"
@@ -1279,10 +1298,42 @@ export function FileManager() {
             onClick={(e) => {
               if (e.target === e.currentTarget) selection.clear();
             }}
+            onDragEnter={
+              canWrite
+                ? (e) => {
+                    if (isInternalFileDrag(e.dataTransfer)) return;
+                    if (e.dataTransfer?.types.includes('Files')) {
+                      externalDragDepthRef.current += 1;
+                      setExternalFileDrag(true);
+                    }
+                  }
+                : undefined
+            }
             onDragOver={canWrite ? onListDragOver : undefined}
-            onDragLeave={canWrite ? onListDragLeave : undefined}
-            onDrop={canWrite ? (e) => void onListDrop(e) : undefined}
+            onDragLeave={
+              canWrite
+                ? (e) => {
+                    onListDragLeave(e);
+                    if (isInternalFileDrag(e.dataTransfer)) return;
+                    externalDragDepthRef.current = Math.max(
+                      0,
+                      externalDragDepthRef.current - 1,
+                    );
+                    if (externalDragDepthRef.current === 0) setExternalFileDrag(false);
+                  }
+                : undefined
+            }
+            onDrop={
+              canWrite
+                ? (e) => {
+                    externalDragDepthRef.current = 0;
+                    setExternalFileDrag(false);
+                    void onListDrop(e);
+                  }
+                : undefined
+            }
           >
+            <DropUploadOverlay visible={externalFileDrag && canWrite} />
             {bucketsLoading ? (
               <div className="flex min-h-[12rem] items-center justify-center gap-2 p-6 text-sm text-muted-foreground">
                 <RefreshCw
@@ -1305,6 +1356,7 @@ export function FileManager() {
                 focusIndex={keyboardNav.focusIndex}
                 onRowFocus={keyboardNav.focusItem}
                 stickyHeader
+                density={density}
                 busyName={busyName}
                 renamingName={renamingName}
                 renamingIsFolder={renamingIsFolder}

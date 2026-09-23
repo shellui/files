@@ -1,6 +1,7 @@
 import { useEffect, useRef, type DragEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowDown, ArrowUp, File as FileIcon, Folder } from 'lucide-react';
+import type { ListDensity } from '@/hooks/useListDensity';
 import type { SortField, SortState } from '@/lib/listSort';
 import type { FileSelection } from '@/hooks/useFileSelection';
 import { accessRowLabel } from '@/lib/accessLabel';
@@ -63,6 +64,7 @@ export type FileListProps = {
   focusIndex?: number;
   onRowFocus?: (index: number) => void;
   stickyHeader?: boolean;
+  density?: ListDensity;
 };
 
 function modifierSelectEvent(e: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean }) {
@@ -331,9 +333,20 @@ export function FileList({
   focusIndex = -1,
   onRowFocus,
   stickyHeader = false,
+  density = 'comfortable',
 }: FileListProps) {
   const { t } = useTranslation();
+  const compact = density === 'compact';
+  const cellPy = compact ? 'py-1' : 'py-2';
+  const tableText = compact ? 'text-xs' : 'text-sm';
   const suppressClickRef = useRef(false);
+  const tbodyRef = useRef<HTMLTableSectionElement>(null);
+
+  useEffect(() => {
+    if (focusIndex < 0 || !tbodyRef.current) return;
+    const row = tbodyRef.current.querySelector<HTMLElement>(`tr[data-row-index="${focusIndex}"]`);
+    row?.scrollIntoView({ block: 'nearest' });
+  }, [focusIndex]);
   const showAccess = columns?.access !== false;
   const showType = columns?.type !== false;
   const showSize = columns?.size !== false;
@@ -375,7 +388,7 @@ export function FileList({
 
   return (
     <table
-      className="w-full border-separate border-spacing-0 select-none text-left text-sm"
+      className={`w-full border-separate border-spacing-0 select-none text-left ${tableText}`}
       aria-multiselectable={canSelect}
       aria-busy={loading || undefined}
     >
@@ -407,7 +420,7 @@ export function FileList({
           loadingLabel={t('loading')}
         />
       ) : (
-        <tbody>
+        <tbody ref={tbodyRef}>
           {items.map((item, rowIndex) => {
             const isFolder = isFolderItem(item);
             const path = joinPath(prefix, item.name);
@@ -531,7 +544,7 @@ export function FileList({
                     )}
                   </td>
                 ) : null}
-                <td className="max-w-0 w-full min-w-0 overflow-hidden px-3 py-2">
+                <td className={`max-w-0 w-full min-w-0 overflow-hidden px-3 ${cellPy}`}>
                   {renaming && renderName ? (
                     renderName(item, { isFolder, path, busy, selected, renaming })
                   ) : (
