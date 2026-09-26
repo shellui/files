@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 See for sample https://raw.githubusercontent.com/favoloso/conventional-changelog-emoji/master/CHANGELOG.md
 -->
 
+## [Unreleased]
+
+### 📚 Documentation
+
+- Add `AGENTS.md` with Shellui writing and design guidelines for coding agents
+
 ## [0.2.1] - 2026-09-07
 
 ### 🔒 Security
