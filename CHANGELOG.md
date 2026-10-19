@@ -21,6 +21,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 See for sample https://raw.githubusercontent.com/favoloso/conventional-changelog-emoji/master/CHANGELOG.md
 -->
 
+## [0.2.2] - 2026-10-19
+
+### 🏗 Chore
+
+- **Shellui SDK:** Uses `@shellui/sdk` 0.6.2.
+- **Build:** Builds with Vite 8.
+
+### 📚 Documentation
+
+- Add `AGENTS.md` with Shellui writing and design guidelines for coding agents
+
 ## [0.2.1] - 2026-09-07
 
 ### 🔒 Security
