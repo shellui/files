@@ -21,6 +21,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 See for sample https://raw.githubusercontent.com/favoloso/conventional-changelog-emoji/master/CHANGELOG.md
 -->
 
+## [0.3.0] - 2026-10-21
+
+### 🏗 Chore
+
+- **Shellui SDK:** Uses `@shellui/sdk` 0.7.0-alpha.1, pinned exactly.
+- Requires identity-service 0.9.0 and shellui 0.7.0-alpha.1.
+
 ## [0.2.2] - 2026-10-19
 
 ### 🏗 Chore
