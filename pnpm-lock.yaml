@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@shellui/sdk':
-        specifier: ^0.6.2
-        version: 0.6.2
+        specifier: 0.7.0-alpha.1
+        version: 0.7.0-alpha.1
       i18next:
         specifier: ^26.4.2
         version: 26.4.2(typescript@5.7.3)
@@ -625,8 +625,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@shellui/sdk@0.6.2':
-    resolution: {integrity: sha512-SV/cLcEyPDkhXE+bv9loibkQjl4Dd8cpr3GOlE+zW4VaVT02ISaYIZnGbSaqhG13B1cYTiap3yHKLgvqFxbOvA==}
+  '@shellui/sdk@0.7.0-alpha.1':
+    resolution: {integrity: sha512-IgrcvyfdWYFfFyiQhBTA2d3ELKTqIkFFm2zM6Qljj7LAGbwvt+vz7SDwdgrHslS43JXPzScp1P8+RVZXDZNOXQ==}
 
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
@@ -2063,7 +2063,7 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.62.4':
     optional: true
 
-  '@shellui/sdk@0.6.2':
+  '@shellui/sdk@0.7.0-alpha.1':
     dependencies:
       roarr: 7.21.7
 
