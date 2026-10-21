@@ -2,7 +2,7 @@
 
 Shellui file manager — a small React app embedded in the **administration** iframe. File upload, download, list, move, and rename go through `@shellui/sdk` (`shellui.storage`); the root shell executes them against [storage-service](../storage-service) using `storage.url`. Access grants and share links still call storage-service directly with the session JWT.
 
-**Compatibility:** Files 0.3.0 requires identity-service 0.9.0 and Shellui 0.7.0-alpha.1 (`@shellui/sdk` pinned exactly).
+**Compatibility:** Files 0.2.3 requires identity-service 0.9.0 and Shellui 0.7.0-alpha.1 (`@shellui/sdk` pinned exactly).
 
 ## Features
 
