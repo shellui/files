@@ -50,6 +50,22 @@ Apps inside Shellui open the picker with `shellui.selectFolders()` / `shellui.se
 
 Production deploy (GitHub Pages) outputs the site at the **root** of the domain (**https://files.shellui.com/**). Set the host’s `storage.filesUrl` to that origin.
 
+## Docker image
+
+Each published release is pushed to Docker Hub as `shellui/files` (tags `X.Y.Z`, `X.Y`, and `latest` for the highest stable release only). The image is multi-arch (amd64 and arm64), serves the static build with unprivileged nginx on port `8080`, and has a built-in healthcheck on `/health`.
+
+```bash
+docker run -p 8080:8080 -e FRAME_ANCESTORS="https://admin.shellui.com" shellui/files:latest
+```
+
+The image holds no secrets and no region-specific URLs. Identity, email, storage and hosting URLs come from the host shell config at runtime, so the same image works in every region.
+
+| Variable          | Required          | Description                                                                                                                                                                                                                                                               |
+| ----------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FRAME_ANCESTORS` | Yes in production | Space-separated exact origins allowed to embed the app (the admin origins that open the file manager). Sets the `frame-ancestors` CSP header. Each entry must be `'self'` or an `http(s)` origin. A bare `*` is refused. When unset, only same-origin framing is allowed. |
+
+Releases are published by `.github/workflows/publish.yml`. It needs the `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` repository secrets (a Read & Write token for the `shellui` namespace). A manual run only moves `latest` when it publishes the highest stable tag.
+
 ## Tests
 
 ```bash

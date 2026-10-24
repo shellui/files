@@ -140,6 +140,40 @@ jobs:
             exit 1
           fi
 
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build image
+        run: docker build -t shellui-files:ci .
+
+      - name: Smoke test
+        run: |
+          set -euo pipefail
+          docker run -d --name files -p 8080:8080 \
+            -e FRAME_ANCESTORS="https://dashboard.example.com https://admin.example.com" \
+            shellui-files:ci
+          for _ in $(seq 1 20); do
+            curl -fsS http://127.0.0.1:8080/health && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8080/health
+          curl -fsS http://127.0.0.1:8080/some/deep/route | grep -q '<div id="root">'
+          curl -fsSI http://127.0.0.1:8080/ | grep -qi "frame-ancestors https://dashboard.example.com https://admin.example.com"
+          test "$(docker inspect -f '{{.Config.User}}' shellui-files:ci)" = "101"
+          if docker run --rm -e FRAME_ANCESTORS='*' shellui-files:ci; then
+            echo '::error::FRAME_ANCESTORS=* must be refused'
+            exit 1
+          fi
+          docker image ls shellui-files:ci --format 'Image size: {{.Size}}'
+
+      - name: Container logs
+        if: always()
+        run: docker logs files || true
+
   links:
     name: Markdown links
     runs-on: ubuntu-latest
