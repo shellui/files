@@ -1,39 +1,26 @@
-# files
+# Shellui Files
 
-Shellui file manager — a small React app embedded in the **administration** iframe. File upload, download, list, move, and rename go through `@shellui/sdk` (`shellui.storage`); the root shell executes them against [storage-service](../storage-service) using `storage.url`. Access grants and share links still call storage-service directly with the session JWT.
+The file explorer for files stored in Shellui.
 
-**Compatibility:** Files 0.2.3 requires identity-service 0.9.0 and Shellui 0.7.0-alpha.1 (`@shellui/sdk` pinned exactly).
+[![CI](https://github.com/shellui/files/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/shellui/files/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-## Features
+Files is a React app that browses a company's files on [storage-service](https://github.com/shellui/storage-service): folders, upload, download, move, rename, access grants and share links. It opens inside [Admin](https://github.com/shellui/admin) under Storage, and it powers the file picker apps call with `shellui.selectFiles()` and `shellui.selectFolders()`. File operations go through `@shellui/sdk`, so the app never holds a storage URL of its own.
 
-- **Company files** — one system bucket per company (`company`), plus optional read-only connector mounts
-- Nested folders, upload / download / rename / delete (gated by `access.can_write`)
-- **Path access grants** — manage folder/file permissions (allow/deny for users or the whole company)
-- **Public share links** — capability URLs with expiry and/or download limits; anonymous redeem on storage-service
-- Theme synced from Shellui (`appearance`)
-- i18n (`en` / `fr`) synced from Shellui language settings
-- Auth via `SHELLUI_SETTINGS.accessToken` (Bearer JWT)
+Production runs at [files.shellui.com](https://files.shellui.com).
 
-## Local setup
+## Get started
+
+You need [pnpm](https://pnpm.io/), a local [Shellui](https://github.com/shellui/shellui) shell with [Admin](https://github.com/shellui/admin), [identity-service](https://github.com/shellui/identity-service) and [storage-service](https://github.com/shellui/storage-service).
 
 ```bash
+git clone https://github.com/shellui/files.git
+cd files
 pnpm install
 pnpm start   # http://localhost:5175
 ```
 
-Storage-service origin is **not** set via env. After `shellui.init()`, this app reads `storage.url` from SDK settings (host `storage` in `shellui.config.ts`).
-
-Also run:
-
-| Service              | Port     |
-| -------------------- | -------- |
-| Shellui              | 4000     |
-| identity-service     | 8000     |
-| admin                | 5174     |
-| storage-service      | 8001     |
-| **files** (this app) | **5175** |
-
-Host config (`shellui/shellui.config.ts`):
+Then add it to the shell config and open Admin, then Storage, then Files:
 
 ```ts
 storage: {
@@ -42,47 +29,50 @@ storage: {
 },
 ```
 
-Admin sidebar → **Storage** → **Files**. Shellui shares the session JWT with `storage.filesUrl`. The explorer syncs the current location to `/{bucket}` or `/{bucket}/{folderId}` (stable folder UUID, mirrored on the Admin chrome URL) so refresh survives renames. Preview, permissions, share-link, move, and **storage picker** UIs open in the Shellui modal via hash routes on the same origin (`#/viewer`, `#/permissions`, `#/share`, `#/move`, `#/select`). File explorer operations use `shellui.storage` (messages to the shell); share-link downloads are served by storage-service at `/storage/v1/share/link/{token}` (no JWT). See storage-service [access](../storage-service/docs/access.md) and [sharing](../storage-service/docs/sharing.md) docs.
+## Docker
 
-Apps inside Shellui open the picker with `shellui.selectFolders()` / `shellui.selectFiles()` — the host loads this app at `#/select`.
-
-## Production
-
-Production deploy (GitHub Pages) outputs the site at the **root** of the domain (**https://files.shellui.com/**). Set the host’s `storage.filesUrl` to that origin.
-
-## Docker image
-
-Each published release is pushed to Docker Hub as `shellui/files` (tags `X.Y.Z`, `X.Y`, and `latest` for the highest stable release only). The image is multi-arch (amd64 and arm64), serves the static build with unprivileged nginx on port `8080`, and has a built-in healthcheck on `/health`.
+Each release is published to Docker Hub as `shellui/files`: a static build on unprivileged nginx, port `8080`, health check on `/health`.
 
 ```bash
 docker run -p 8080:8080 -e FRAME_ANCESTORS="https://admin.shellui.com" shellui/files:latest
 ```
 
-The image holds no secrets and no region-specific URLs. Identity, email, storage and hosting URLs come from the host shell config at runtime, so the same image works in every region.
+`FRAME_ANCESTORS` lists the exact admin origins allowed to embed the app. A bare `*` is refused. The image holds no secrets and no region URLs.
 
-| Variable          | Required          | Description                                                                                                                                                                                                                                                               |
-| ----------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `FRAME_ANCESTORS` | Yes in production | Space-separated exact origins allowed to embed the app (the admin origins that open the file manager). Sets the `frame-ancestors` CSP header. Each entry must be `'self'` or an `http(s)` origin. A bare `*` is refused. When unset, only same-origin framing is allowed. |
+## Documentation
 
-Releases are published by `.github/workflows/publish.yml`. It needs the `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` repository secrets (a Read & Write token for the `shellui` namespace). A manual run only moves `latest` when it publishes the highest stable tag.
+- [Storage](https://docs.shellui.com/features/storage/) and the [storage picker](https://docs.shellui.com/features/storage-picker/) on docs.shellui.com
+- [storage-service docs](https://docs.shellui.com/storage), including access grants and share links
+- [Development notes](docs/development.md): ports, routes and how the explorer talks to the shell
+- [CHANGELOG.md](CHANGELOG.md)
 
-## Tests
+## Development
 
 ```bash
 pnpm test
 pnpm typecheck
 pnpm format:check
+pnpm build
 ```
 
-Pull requests (and pushes to `develop` / `main`) run the same checks plus production build, secret scan, dependency audit, and CodeQL. GitHub Pages deploy still runs only after merge to `main`. Require those CI jobs in branch protection before merging.
+## Contributing
 
-## Structure
+Open an issue or a pull request against `develop`. CI runs the tests, a production build, a secret scan, a dependency audit, a link check and CodeQL. Coding agents start with [AGENTS.md](AGENTS.md).
 
-| Path      | Role                                                                         |
-| --------- | ---------------------------------------------------------------------------- |
-| `src/`    | Vite + React source                                                          |
-| `public/` | Static files copied to `dist/` (including `CNAME` for **files.shellui.com**) |
+## Shellui projects
+
+| Project                                                         | What it does                        |
+| --------------------------------------------------------------- | ----------------------------------- |
+| [shellui](https://github.com/shellui/shellui)                   | The shell, CLI and SDK              |
+| [admin](https://github.com/shellui/admin)                       | Administration app inside the shell |
+| [files](https://github.com/shellui/files)                       | File explorer for storage-service   |
+| [identity-service](https://github.com/shellui/identity-service) | Sign-in, companies and tokens       |
+| [storage-service](https://github.com/shellui/storage-service)   | File storage                        |
+| [hosting-service](https://github.com/shellui/hosting-service)   | Deploys and serves Shellui apps     |
+| [email-service](https://github.com/shellui/email-service)       | Templates and sends email           |
+| [skills](https://github.com/shellui/skills)                     | Agent Skills for coding agents      |
+| [playground](https://github.com/shellui/playground)             | Live demo of the shell              |
 
 ## License
 
-MIT
+[MIT](LICENSE)
