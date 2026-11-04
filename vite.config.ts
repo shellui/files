@@ -19,7 +19,10 @@ function spaFallback404(): Plugin {
 }
 
 const devPort = Number(process.env.VITE_DEV_PORT || 5175);
-const devOrigin = (process.env.VITE_DEV_ORIGIN || `http://localhost:${devPort}`).replace(/\/+$/, '');
+const devOrigin = (process.env.VITE_DEV_ORIGIN || `http://localhost:${devPort}`).replace(
+  /\/+$/,
+  '',
+);
 const usePolling =
   process.env.CHOKIDAR_USEPOLLING === 'true' || process.env.VITE_USE_POLLING === 'true';
 

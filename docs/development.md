@@ -81,14 +81,14 @@ files:
 
 Local Vite dev only (`import.meta.env.DEV`). Production embeds and the published Docker image do not read these; service URLs still come from the host shell at runtime.
 
-| Variable             | Default (if unset)        | Description |
-| -------------------- | ------------------------- | ----------- |
-| `VITE_STORAGE_URL`   | (none)                    | Browser-facing storage-service origin for direct API calls (access grants, share links). Falls back when `storage.url` from the parent is empty. Example: `http://localhost:8002`. |
-| `VITE_IDENTITY_URL`  | (none)                    | Browser-facing identity-service origin for local tooling and compose mapping. Sign-in stays in the host shell. Example: `http://localhost:8001`. |
-| `VITE_USE_POLLING`   | (off)                     | Set to `true` to poll the Vite file watcher (Docker bind mounts). |
-| `CHOKIDAR_USEPOLLING`| (off)                     | Same as `VITE_USE_POLLING` when set to `true`. |
-| `VITE_DEV_ORIGIN`    | `http://localhost:5175`   | Public origin for the dev server (HMR and asset URLs). |
-| `VITE_DEV_PORT`      | `5175`                    | Dev server and HMR client port. |
+| Variable              | Default (if unset)      | Description                                                                                                                                                                        |
+| --------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VITE_STORAGE_URL`    | (none)                  | Browser-facing storage-service origin for direct API calls (access grants, share links). Falls back when `storage.url` from the parent is empty. Example: `http://localhost:8002`. |
+| `VITE_IDENTITY_URL`   | (none)                  | Browser-facing identity-service origin for local tooling and compose mapping. Sign-in stays in the host shell. Example: `http://localhost:8001`.                                   |
+| `VITE_USE_POLLING`    | (off)                   | Set to `true` to poll the Vite file watcher (Docker bind mounts).                                                                                                                  |
+| `CHOKIDAR_USEPOLLING` | (off)                   | Same as `VITE_USE_POLLING` when set to `true`.                                                                                                                                     |
+| `VITE_DEV_ORIGIN`     | `http://localhost:5175` | Public origin for the dev server (HMR and asset URLs).                                                                                                                             |
+| `VITE_DEV_PORT`       | `5175`                  | Dev server and HMR client port.                                                                                                                                                    |
 
 See [.env.example](../.env.example) for copy-paste values. Do not commit secrets.
 
