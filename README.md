@@ -24,10 +24,12 @@ Then add it to the shell config and open Admin, then Storage, then Files:
 
 ```ts
 storage: {
-  url: 'http://localhost:8001',
+  url: 'http://localhost:8002',
   filesUrl: 'http://localhost:5175/',
 },
 ```
+
+For the full local stack (Postgres, identity, storage, admin, and this app in Docker), see [Development notes](docs/development.md#local-dev-stack-docker-compose). Optional Vite env vars (`VITE_STORAGE_URL`, `VITE_IDENTITY_URL`) are documented there.
 
 ## Docker
 

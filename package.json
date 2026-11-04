@@ -4,6 +4,7 @@
   "description": "Shellui file manager — embedded in the admin panel; file ops go through @shellui/sdk",
   "type": "module",
   "scripts": {
+    "dev": "vite",
     "start": "vite",
     "build": "vite build",
     "preview": "vite preview",

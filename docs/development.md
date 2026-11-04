@@ -21,26 +21,74 @@ pnpm install
 pnpm start   # http://localhost:5175
 ```
 
-Storage-service origin is **not** set via env. After `shellui.init()`, this app reads `storage.url` from SDK settings (host `storage` in `shellui.config.ts`).
+After `shellui.init()`, this app reads `storage.url` from SDK settings (host `storage` in `shellui.config.ts`). In local Vite dev you can also set `VITE_STORAGE_URL` (see [Environment variables](#environment-variables)) so access grants and share links work before the parent pushes settings.
 
-Also run:
+Host ports in the shared dev stack (`shellui/shellui/dev/docker-compose.yml`):
 
-| Service              | Port     |
-| -------------------- | -------- |
-| Shellui              | 4000     |
-| identity-service     | 8000     |
-| admin                | 5174     |
-| storage-service      | 8001     |
-| **files** (this app) | **5175** |
+| Service              | Host port |
+| -------------------- | --------- |
+| identity-service     | 8001      |
+| storage-service      | 8002      |
+| admin                | 5173      |
+| dashboard            | 5174      |
+| **files** (this app) | **5175**  |
 
 Host config (`shellui/shellui.config.ts`):
 
 ```ts
 storage: {
-  url: 'http://localhost:8001',
+  url: 'http://localhost:8002',
   filesUrl: 'http://localhost:5175/',
 },
 ```
+
+## Local dev stack (Docker Compose)
+
+The compose file lives in the [shellui](https://github.com/shellui/shellui) repo under `dev/`. Clone sibling repos next to each other, copy `dev/.env.local.example` to `dev/.env.local`, then:
+
+```bash
+cd shellui/dev
+docker compose --env-file .env.local up
+```
+
+This repo’s `Dockerfile` exposes a **`dev` target** (production nginx stage unchanged and still the default for publish):
+
+- Installs dependencies only; compose bind-mounts this repo at `/app` and uses an anonymous volume for `/app/node_modules`.
+- Runs `pnpm run dev -- --host 0.0.0.0 --port 5175` (browser: **http://localhost:5175**).
+- HMR uses the published port (`VITE_DEV_ORIGIN` / `VITE_DEV_PORT` if you override the host mapping).
+- Set `CHOKIDAR_USEPOLLING=true` or `VITE_USE_POLLING=true` when bind mounts do not emit file events (common on macOS).
+
+Example compose build stanza:
+
+```yaml
+files:
+  build:
+    context: ../../files
+    target: dev
+  ports:
+    - '5175:5175'
+  volumes:
+    - ../../files:/app
+    - /app/node_modules
+  environment:
+    VITE_STORAGE_URL: http://localhost:8002
+    VITE_IDENTITY_URL: http://localhost:8001
+```
+
+## Environment variables
+
+Local Vite dev only (`import.meta.env.DEV`). Production embeds and the published Docker image do not read these; service URLs still come from the host shell at runtime.
+
+| Variable             | Default (if unset)        | Description |
+| -------------------- | ------------------------- | ----------- |
+| `VITE_STORAGE_URL`   | (none)                    | Browser-facing storage-service origin for direct API calls (access grants, share links). Falls back when `storage.url` from the parent is empty. Example: `http://localhost:8002`. |
+| `VITE_IDENTITY_URL`  | (none)                    | Browser-facing identity-service origin for local tooling and compose mapping. Sign-in stays in the host shell. Example: `http://localhost:8001`. |
+| `VITE_USE_POLLING`   | (off)                     | Set to `true` to poll the Vite file watcher (Docker bind mounts). |
+| `CHOKIDAR_USEPOLLING`| (off)                     | Same as `VITE_USE_POLLING` when set to `true`. |
+| `VITE_DEV_ORIGIN`    | `http://localhost:5175`   | Public origin for the dev server (HMR and asset URLs). |
+| `VITE_DEV_PORT`      | `5175`                    | Dev server and HMR client port. |
+
+See [.env.example](../.env.example) for copy-paste values. Do not commit secrets.
 
 Admin sidebar → **Storage** → **Files**. Shellui shares the session JWT with `storage.filesUrl`. The explorer syncs the current location to `/{bucket}` or `/{bucket}/{folderId}` (stable folder UUID, mirrored on the Admin chrome URL) so refresh survives renames. Preview, permissions, share-link, move, and **storage picker** UIs open in the Shellui modal via hash routes on the same origin (`#/viewer`, `#/permissions`, `#/share`, `#/move`, `#/select`). File explorer operations use `shellui.storage` (messages to the shell); share-link downloads are served by storage-service at `/storage/v1/share/link/{token}` (no JWT). See storage-service [access](https://github.com/shellui/storage-service/blob/main/docs/access.md) and [sharing](https://github.com/shellui/storage-service/blob/main/docs/sharing.md) docs.
 

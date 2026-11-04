@@ -1,4 +1,5 @@
 import { shellui } from '@shellui/sdk';
+import { resolveStorageServiceUrl } from '@/lib/serviceUrls';
 
 export type BucketAccess = {
   audience: 'company' | 'owner' | 'connector' | 'restricted' | 'limited';
@@ -168,12 +169,13 @@ export function resolveStorageError(err: unknown, t: StorageErrorTranslate): str
   return msg || t('error');
 }
 
-/** storage-service base URL from host `storage.url` after `shellui.init()`. */
+/** storage-service base URL from host `storage.url` after `shellui.init()`, or dev env fallback. */
 function storageBaseUrl(): string {
-  const url = shellui.initialSettings?.storage?.url?.trim().replace(/\/+$/, '') ?? '';
+  const url = resolveStorageServiceUrl(shellui.initialSettings?.storage?.url);
   if (!url) {
+    const devHint = import.meta.env.DEV ? ' or set VITE_STORAGE_URL for local dev.' : '';
     throw new Error(
-      'Storage URL is not set. Configure storage.url in the host Shellui app (shellui.config.ts).',
+      `Storage URL is not set. Configure storage.url in the host Shellui app (shellui.config.ts)${devHint}`,
     );
   }
   return url;

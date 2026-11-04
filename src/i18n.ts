@@ -9,9 +9,9 @@ const resources = {
       standaloneDescription:
         'This file manager runs inside the administration panel iframe. Open it from Shellui Admin → Storage → Files.',
       standaloneStepRun:
-        '1. Start Shellui (:4000), admin (:5174), storage-service (:8001), and this app (pnpm start → :5175).',
+        '1. Start Shellui (:4000), admin (:5173), storage-service (:8002), and this app (pnpm start → :5175).',
       standaloneConfigSnippet: `storage: {
-  url: 'http://localhost:8001',
+  url: 'http://localhost:8002',
   filesUrl: 'http://localhost:5175/',
 },`,
       waitingSession: 'Waiting for Shellui session…',
@@ -213,9 +213,9 @@ const resources = {
       standaloneDescription:
         'Ce gestionnaire de fichiers s’exécute dans l’iframe d’administration. Ouvrez-le via Admin → Stockage → Fichiers.',
       standaloneStepRun:
-        '1. Démarrez Shellui (:4000), admin (:5174), storage-service (:8001) et cette app (pnpm start → :5175).',
+        '1. Démarrez Shellui (:4000), admin (:5173), storage-service (:8002) et cette app (pnpm start → :5175).',
       standaloneConfigSnippet: `storage: {
-  url: 'http://localhost:8001',
+  url: 'http://localhost:8002',
   filesUrl: 'http://localhost:5175/',
 },`,
       waitingSession: 'En attente de la session Shellui…',

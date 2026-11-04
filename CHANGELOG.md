@@ -27,6 +27,7 @@ See for sample https://raw.githubusercontent.com/favoloso/conventional-changelog
 
 - **Shellui SDK:** Uses `@shellui/sdk` 0.7.0-alpha.1, pinned exactly.
 - Requires identity-service 0.9.0 and shellui 0.7.0-alpha.1.
+- **Dev stack:** Dockerfile `dev` target for Vite on port 5175 with HMR and optional bind-mount polling; `VITE_STORAGE_URL` / `VITE_IDENTITY_URL` for local service origins.
 
 ## [0.2.2] - 2026-10-19
 

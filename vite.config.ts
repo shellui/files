@@ -18,6 +18,11 @@ function spaFallback404(): Plugin {
   };
 }
 
+const devPort = Number(process.env.VITE_DEV_PORT || 5175);
+const devOrigin = (process.env.VITE_DEV_ORIGIN || `http://localhost:${devPort}`).replace(/\/+$/, '');
+const usePolling =
+  process.env.CHOKIDAR_USEPOLLING === 'true' || process.env.VITE_USE_POLLING === 'true';
+
 export default defineConfig({
   plugins: [react(), spaFallback404()],
   resolve: {
@@ -28,14 +33,16 @@ export default defineConfig({
   },
   base: '/',
   server: {
-    port: 5175,
+    host: true,
+    port: devPort,
     strictPort: true,
-    origin: 'http://localhost:5175',
+    origin: devOrigin,
     cors: true,
+    watch: usePolling ? { usePolling: true, interval: 1000 } : undefined,
     hmr: {
-      clientPort: 5175,
-      host: 'localhost',
-      protocol: 'ws',
+      clientPort: devPort,
+      host: new URL(devOrigin).hostname,
+      protocol: devOrigin.startsWith('https') ? 'wss' : 'ws',
     },
   },
   build: {
