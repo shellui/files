@@ -44,12 +44,14 @@ storage: {
 
 ## Local dev stack (Docker Compose)
 
-The compose file lives in the [shellui](https://github.com/shellui/shellui) repo under `dev/`. Clone sibling repos next to each other, copy `dev/.env.local.example` to `dev/.env.local`, then:
+The compose file lives in the [shellui](https://github.com/shellui/shellui) repo under `dev/`. Clone sibling repos next to each other, then:
 
 ```bash
 cd shellui/dev
-docker compose --env-file .env.local up
+./start.sh
 ```
+
+Clone layout, URLs, common commands and troubleshooting are in the [Shellui dev stack guide](https://github.com/shellui/shellui/blob/develop/docs/dev-stack.md). The notes below are specific to files.
 
 This repo’s `Dockerfile` exposes a **`dev` target** (production nginx stage unchanged and still the default for publish):
 
