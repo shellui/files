@@ -48,6 +48,17 @@ docker run -p 8080:8080 -e FRAME_ANCESTORS="https://admin.shellui.com" shellui/f
 - [Development notes](docs/development.md): ports, routes and how the explorer talks to the shell
 - [CHANGELOG.md](CHANGELOG.md)
 
+## Run locally
+
+The recommended way is the Shellui dev stack. It runs this app with every other Shellui service and front-end in Docker, with your checkout mounted for hot reload. Clone the Shellui repos side by side, then:
+
+```bash
+cd shellui/dev
+./start.sh
+```
+
+files is on [http://localhost:5175](http://localhost:5175). See the [Shellui dev stack guide](https://github.com/shellui/shellui/blob/develop/docs/dev-stack.md).
+
 ## Development
 
 ```bash
