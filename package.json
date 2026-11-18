@@ -1,7 +1,7 @@
 {
   "name": "shellui-files",
-  "version": "0.2.4",
-  "description": "Shellui file manager — embedded in the admin panel; file ops go through @shellui/sdk",
+  "version": "0.3.0",
+  "description": "Shellui file manager, embedded in the admin panel; file ops go through @shellui/sdk",
   "type": "module",
   "scripts": {
     "dev": "vite",
