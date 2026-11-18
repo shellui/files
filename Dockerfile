@@ -18,6 +18,21 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm build && rm -f dist/assets/*.map dist/CNAME
 
+# Dev stack: deps only; bind-mount source at /app and keep node_modules in a volume.
+FROM node:25.2.0-alpine AS dev
+
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+RUN rm -f /usr/local/bin/yarn /usr/local/bin/yarnpkg && npm install -g corepack@0.34.0 --no-fund --no-audit && corepack enable
+
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+EXPOSE 5175
+
+CMD ["pnpm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5175"]
+
 # Runtime stage: unprivileged nginx (uid 101) on port 8080.
 FROM nginxinc/nginx-unprivileged:1.29-alpine-slim
 
