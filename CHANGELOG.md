@@ -6,26 +6,44 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 <!---
-## [Unreleased] - yyyy-mm-dd
-
-### ✨ Feature – for new features
-### 🛠 Improvements – for general improvements
-### 🚨 Changed – for changes in existing functionality
-### ⚠️ Deprecated – for soon-to-be removed features
-### 📚 Documentation – for documentation update
-### 🗑 Removed – for removed features
-### 🐛 Bug Fixes – for any bug fixes
-### 🔒 Security – in case of vulnerabilities
-### 🏗 Chore – for tidying code
+### ✨ Feature: for new features
+### 🛠 Improvements: for general improvements
+### 🚨 Changed: for changes in existing functionality
+### ⚠️ Deprecated: for soon-to-be removed features
+### 📚 Documentation: for documentation update
+### 🗑 Removed: for removed features
+### 🐛 Bug Fixes: for any bug fixes
+### 🔒 Security: for vulnerabilities
+### 🏗 Chore: for tidying code
 
 See for sample https://raw.githubusercontent.com/favoloso/conventional-changelog-emoji/master/CHANGELOG.md
 -->
 
-## [Unreleased]
+## [0.3.0] - 2026-11-18
 
-### 🏗 Chore
+### Added
 
-- **Shellui SDK:** Uses `@shellui/sdk` 0.8.0, pinned exactly.
+- **Local dev image**: The Dockerfile `dev` target runs Vite on port 5175 with `pnpm dev`, and hot module replacement uses the published port. Set `VITE_USE_POLLING` when a bind mount does not emit file events.
+- **Local service URLs**: Vite dev falls back to `VITE_STORAGE_URL` for access grants and share links when host `storage.url` is empty. `VITE_IDENTITY_URL` is the local identity-service origin for tooling. Production builds ignore both.
+
+### Changed
+
+- **Shellui SDK**: Uses `@shellui/sdk` 0.8.1, pinned exactly.
+- **Icons**: UI icons come from lucide-react 1.61.0.
+- **Translations**: The app uses react-i18next 17.0.15.
+- **Docs**: The README and development notes cover the Shellui dev stack, the `dev` image, and local Vite env vars.
+- **Docker publish**: The release workflow uses checkout v7, setup-qemu v4, login v4, metadata v6, and build-push v7.
+- **Typecheck and tests**: TypeScript 5.9.3 and Vitest 5.0.5.
+
+### Fixed
+
+- **Standalone setup**: Signed-out instructions use admin on port 5173 and storage-service on port 8002.
+
+## [0.2.4] - 2026-10-24
+
+### ✨ Feature
+
+- **Docker:** Publishes a `shellui/files` image to Docker Hub on each release, configured at runtime with `FRAME_ANCESTORS`.
 
 ## [0.2.3] - 2026-10-21
 
@@ -33,7 +51,6 @@ See for sample https://raw.githubusercontent.com/favoloso/conventional-changelog
 
 - **Shellui SDK:** Uses `@shellui/sdk` 0.7.0-alpha.1, pinned exactly.
 - Requires identity-service 0.9.0 and shellui 0.7.0-alpha.1.
-- **Dev stack:** Dockerfile `dev` target for Vite on port 5175 with HMR and optional bind-mount polling; `VITE_STORAGE_URL` / `VITE_IDENTITY_URL` for local service origins.
 
 ## [0.2.2] - 2026-10-19
 
