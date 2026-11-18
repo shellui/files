@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@shellui/sdk':
-        specifier: 0.8.0
-        version: 0.8.0(react@18.3.1)
+        specifier: 0.8.1
+        version: 0.8.1(react@18.3.1)
       i18next:
         specifier: ^26.4.2
         version: 26.4.2(typescript@5.9.3)
@@ -324,8 +324,8 @@ packages:
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
-  '@shellui/sdk@0.8.0':
-    resolution: {integrity: sha512-ECWvBuqUnwWXsgE8oNMqnLUOHx9nzp6D5LptaxqDVgvXUwG03H85rj1MqWvWZDUdDOqj7IYMLdxfRmVe/OnNig==}
+  '@shellui/sdk@0.8.1':
+    resolution: {integrity: sha512-+rbJ3Viu4UrmfPBOqFhTLTSMuAJlu0oBOVvYWP8dFDD5VANiRX2ata/rkzmsK+X2Q4vojWxj3esL1f23JVeG5Q==}
     peerDependencies:
       react: '>=18'
     peerDependenciesMeta:
@@ -1515,7 +1515,7 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.1': {}
 
-  '@shellui/sdk@0.8.0(react@18.3.1)':
+  '@shellui/sdk@0.8.1(react@18.3.1)':
     dependencies:
       roarr: 7.21.7
     optionalDependencies:

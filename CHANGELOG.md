@@ -28,7 +28,7 @@ See for sample https://raw.githubusercontent.com/favoloso/conventional-changelog
 
 ### Changed
 
-- **Shellui SDK**: Uses `@shellui/sdk` 0.8.0, pinned exactly.
+- **Shellui SDK**: Uses `@shellui/sdk` 0.8.1, pinned exactly.
 - **Icons**: UI icons come from lucide-react 1.61.0.
 - **Translations**: The app uses react-i18next 17.0.15.
 - **Docs**: The README and development notes cover the Shellui dev stack, the `dev` image, and local Vite env vars.
