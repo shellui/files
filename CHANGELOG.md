@@ -27,6 +27,12 @@ See for sample https://raw.githubusercontent.com/favoloso/conventional-changelog
 
 - **Shellui SDK:** Uses `@shellui/sdk` 0.8.0, pinned exactly.
 
+## [0.2.4] - 2026-10-24
+
+### ✨ Feature
+
+- **Docker:** Publishes a `shellui/files` image to Docker Hub on each release, configured at runtime with `FRAME_ANCESTORS`.
+
 ## [0.2.3] - 2026-10-21
 
 ### 🏗 Chore
