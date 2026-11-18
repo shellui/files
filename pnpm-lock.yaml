@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@shellui/sdk':
-        specifier: 0.7.0-alpha.1
-        version: 0.7.0-alpha.1
+        specifier: 0.8.0
+        version: 0.8.0(react@18.3.1)
       i18next:
         specifier: ^26.4.2
         version: 26.4.2(typescript@5.9.3)
@@ -324,8 +324,13 @@ packages:
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
-  '@shellui/sdk@0.7.0-alpha.1':
-    resolution: {integrity: sha512-IgrcvyfdWYFfFyiQhBTA2d3ELKTqIkFFm2zM6Qljj7LAGbwvt+vz7SDwdgrHslS43JXPzScp1P8+RVZXDZNOXQ==}
+  '@shellui/sdk@0.8.0':
+    resolution: {integrity: sha512-ECWvBuqUnwWXsgE8oNMqnLUOHx9nzp6D5LptaxqDVgvXUwG03H85rj1MqWvWZDUdDOqj7IYMLdxfRmVe/OnNig==}
+    peerDependencies:
+      react: '>=18'
+    peerDependenciesMeta:
+      react:
+        optional: true
 
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
@@ -1510,9 +1515,11 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.1': {}
 
-  '@shellui/sdk@0.7.0-alpha.1':
+  '@shellui/sdk@0.8.0(react@18.3.1)':
     dependencies:
       roarr: 7.21.7
+    optionalDependencies:
+      react: 18.3.1
 
   '@types/babel__core@7.20.5':
     dependencies:
