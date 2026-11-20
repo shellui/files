@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import DOMPurify from 'dompurify';
 import {
   ChevronLeft,
   ChevronRight,
@@ -21,6 +22,9 @@ import { shellui } from '@shellui/sdk';
 import {
   formatJsonText,
   isTextTooLarge,
+  PREVIEW_HTML_SANITIZE,
+  PREVIEW_IFRAME_SANDBOX,
+  previewMime,
   renderMarkdownLite,
   resolveViewerKind,
   type ViewerKind,
@@ -133,7 +137,7 @@ export function FileViewer({
       try {
         const blob = unwrapStorage(await shellui.storage.from(bucket).download(target.path));
         if (cancelled) return;
-        const mime = listedMime || blob.type || 'application/octet-stream';
+        const mime = previewMime(blob.type, listedMime);
         setResolvedMime(mime);
         const loadedKind = resolveViewerKind(mime, target.item.name);
 
@@ -210,10 +214,10 @@ export function FileViewer({
     }
   }, [authFailed, bucket, target.path, target.item.name, t]);
 
-  const markdownHtml = useMemo(
-    () => (kind === 'markdown' && textContent != null ? renderMarkdownLite(textContent) : null),
-    [kind, textContent],
-  );
+  const markdownHtml = useMemo(() => {
+    if (kind !== 'markdown' || textContent == null) return null;
+    return DOMPurify.sanitize(renderMarkdownLite(textContent), PREVIEW_HTML_SANITIZE);
+  }, [kind, textContent]);
 
   const embedded = variant === 'embedded';
   const mediaMaxClass = embedded ? 'max-h-full max-w-full' : 'max-h-[calc(100vh-12rem)] max-w-full';
@@ -320,6 +324,7 @@ export function FileViewer({
           <iframe
             title={target.item.name}
             src={objectUrl}
+            sandbox={PREVIEW_IFRAME_SANDBOX}
             className="h-full min-h-[20rem] w-full border-0 bg-background"
           />
         ) : kind === 'video' && objectUrl ? (

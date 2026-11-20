@@ -19,6 +19,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 See for sample https://raw.githubusercontent.com/favoloso/conventional-changelog-emoji/master/CHANGELOG.md
 -->
 
+## [Unreleased]
+
+### Security
+
+- **Markdown preview:** Rendered Markdown is sanitized before display.
+- **PDF preview:** Preview type follows the content type, and the preview frame is sandboxed.
+- **Shell messages:** Picker results and close messages post to the parent origin.
+
 ## [0.3.0] - 2026-11-18
 
 ### Added
