@@ -12,5 +12,10 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: ['src/**/*.spec.ts', 'src/**/*.spec.tsx'],
+    server: {
+      deps: {
+        inline: ['@shellui/sdk'],
+      },
+    },
   },
 });

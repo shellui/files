@@ -1,5 +1,7 @@
 /** Shared helpers for Shellui-centered modal hash routes. */
 
+import { postShellMessage } from '@shellui/sdk';
+
 function appBaseUrl(): string {
   return (
     `${window.location.origin}${window.location.pathname}`.replace(/\/+$/, '') ||
@@ -159,20 +161,14 @@ export type SelectResultPayload = {
 
 /** Send picker result to Shellui root. Does not close the generic URL modal. */
 export function sendSelectResult(payload: SelectResultPayload): void {
-  if (typeof window === 'undefined') return;
-  const message = { type: 'SHELLUI_SELECT_STORAGE_RESULT', payload };
-  if (window.parent !== window) {
-    window.parent.postMessage(message, '*');
-    return;
-  }
-  window.postMessage(message, '*');
+  postShellMessage({ type: 'SHELLUI_SELECT_STORAGE_RESULT', payload });
 }
 
 /** Close the Shellui modal, or clear the hash when running standalone. */
 export function closeAppModal(): void {
   if (typeof window === 'undefined') return;
   if (window.parent !== window) {
-    window.parent.postMessage({ type: 'SHELLUI_CLOSE_MODAL', payload: {} }, '*');
+    postShellMessage({ type: 'SHELLUI_CLOSE_MODAL', payload: {} });
     return;
   }
   window.location.hash = '';
@@ -182,7 +178,7 @@ export function closeAppModal(): void {
 export function closeAppDrawer(): void {
   if (typeof window === 'undefined') return;
   if (window.parent !== window) {
-    window.parent.postMessage({ type: 'SHELLUI_CLOSE_DRAWER', payload: {} }, '*');
+    postShellMessage({ type: 'SHELLUI_CLOSE_DRAWER', payload: {} });
     return;
   }
   window.location.hash = '';

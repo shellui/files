@@ -21,6 +21,12 @@ See for sample https://raw.githubusercontent.com/favoloso/conventional-changelog
 
 ## [Unreleased]
 
+### Security
+
+- **Markdown preview:** Rendered Markdown is sanitized before display.
+- **PDF preview:** Preview type follows the content type, and the preview frame is sandboxed.
+- **Shell messages:** Picker results and close messages post to the parent origin.
+
 ### Changed
 
 - **Dependencies**: React 19.3, i18next 27 with react-i18next 17.1.13, react-router-dom 7.18.7, Vite 8.4, autoprefixer 10.7, Prettier 3.10 and other minor updates. `accessRowLabel` types its `t` argument so i18next's `TFunction` fits.
