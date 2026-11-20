@@ -1,5 +1,62 @@
+import DOMPurify from 'dompurify';
+import type { Config } from 'dompurify';
+
 export type ViewerKind =
   'image' | 'pdf' | 'video' | 'audio' | 'text' | 'markdown' | 'json' | 'unsupported';
+
+/** Empty sandbox: the preview frame has no extra capability tokens. */
+export const PREVIEW_IFRAME_SANDBOX = '';
+
+/** Tags and URL schemes the Markdown preview is allowed to keep. */
+export const PREVIEW_HTML_SANITIZE: Config = {
+  ALLOWED_TAGS: [
+    'a',
+    'br',
+    'code',
+    'em',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'li',
+    'p',
+    'pre',
+    'strong',
+    'ul',
+  ],
+  ALLOWED_ATTR: ['class', 'href', 'rel', 'target'],
+  ALLOW_DATA_ATTR: false,
+  ALLOW_ARIA_ATTR: false,
+  ALLOWED_URI_REGEXP: /^https?:\/\//i,
+};
+
+let previewHooksReady = false;
+
+function ensurePreviewHooks(): void {
+  if (previewHooksReady || typeof window === 'undefined') return;
+  DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+    if (node.tagName !== 'A') return;
+    node.setAttribute('target', '_blank');
+    node.setAttribute('rel', 'noopener noreferrer');
+  });
+  previewHooksReady = true;
+}
+
+/** Strip everything outside the preview allow-list, including event handlers. */
+export function sanitizePreviewHtml(html: string): string {
+  if (typeof window === 'undefined') {
+    return html
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+  ensurePreviewHooks();
+  return DOMPurify.sanitize(html, PREVIEW_HTML_SANITIZE);
+}
 
 const TEXT_EXTENSIONS = new Set([
   'txt',
@@ -69,7 +126,8 @@ export function resolveViewerKind(mime: string | null | undefined, name: string)
   ) {
     return 'image';
   }
-  if (type === 'application/pdf' || ext === 'pdf') {
+  // PDF preview requires a content type of application/pdf.
+  if (type === 'application/pdf') {
     return 'pdf';
   }
   if (type.startsWith('video/') || ['mp4', 'webm', 'ogg', 'mov', 'm4v'].includes(ext)) {
@@ -114,6 +172,27 @@ export function canPreviewInBrowser(mime: string | null | undefined, name: strin
   return resolveViewerKind(mime, name) !== 'unsupported';
 }
 
+function bareMime(value: string | null | undefined): string {
+  return (value || '').toLowerCase().split(';')[0].trim();
+}
+
+/**
+ * Mime used to choose a preview after the bytes are loaded.
+ * When the download content type is present and is not PDF, it replaces a listed PDF type.
+ */
+export function previewMime(
+  responseType: string | null | undefined,
+  listedType: string | null | undefined,
+): string {
+  const response = bareMime(responseType);
+  const listed = bareMime(listedType);
+  const specificResponse = response && response !== 'application/octet-stream' ? response : '';
+  if (listed === 'application/pdf' && specificResponse && specificResponse !== 'application/pdf') {
+    return specificResponse;
+  }
+  return listed || specificResponse || response || 'application/octet-stream';
+}
+
 const MAX_TEXT_BYTES = 2 * 1024 * 1024;
 
 export function isTextTooLarge(size: number | undefined | null): boolean {
@@ -122,7 +201,12 @@ export function isTextTooLarge(size: number | undefined | null): boolean {
 
 /** Escape HTML then apply a light Markdown subset for previews. */
 export function renderMarkdownLite(source: string): string {
-  const escaped = source.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const escaped = source
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 
   const lines = escaped.split('\n');
   const html: string[] = [];
@@ -186,7 +270,7 @@ export function renderMarkdownLite(source: string): string {
   }
   if (inCode) html.push('</code></pre>');
   flushList();
-  return html.join('');
+  return sanitizePreviewHtml(html.join(''));
 }
 
 export function formatJsonText(raw: string): string {
