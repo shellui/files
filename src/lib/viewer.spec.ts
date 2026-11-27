@@ -59,7 +59,31 @@ describe('hasPdfHeader', () => {
   it('refuses other content that only has a PDF type or name', async () => {
     expect(await hasPdfHeader(blobOf('<html><script>alert(1)</script></html>'))).toBe(false);
     expect(await hasPdfHeader(blobOf('plain text renamed to .pdf'))).toBe(false);
-    expect(await hasPdfHeader(blobOf(' %PDF-1.4'))).toBe(false);
+  });
+
+  it('accepts a leading PDF whitespace byte, including a newline or space', async () => {
+    expect(await hasPdfHeader(blobOf('\n%PDF-1.7\n'))).toBe(true);
+    expect(await hasPdfHeader(blobOf(' %PDF-1.4'))).toBe(true);
+    expect(await hasPdfHeader(blobOf('\r\n%PDF-1.4'))).toBe(true);
+  });
+
+  it('refuses a leading UTF-8 BOM, which is not PDF whitespace', async () => {
+    // EF BB BF is not in the ISO 32000 whitespace set (NUL, HT, LF, FF, CR, SP),
+    // so a BOM-prefixed file is not treated as a PDF.
+    const bom = new Uint8Array([0xef, 0xbb, 0xbf]);
+    const header = new TextEncoder().encode('%PDF-1.7\n');
+    const bytes = new Uint8Array(bom.length + header.length);
+    bytes.set(bom);
+    bytes.set(header, bom.length);
+    expect(await hasPdfHeader(new Blob([bytes], { type: 'application/pdf' }))).toBe(false);
+  });
+
+  it('refuses HTML that only contains %PDF- later in the file', async () => {
+    expect(
+      await hasPdfHeader(
+        blobOf('<!doctype html><html><body>not a pdf %PDF-1.7</body></html>'),
+      ),
+    ).toBe(false);
   });
 
   it('refuses empty and truncated files', async () => {

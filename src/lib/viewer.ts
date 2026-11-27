@@ -191,21 +191,35 @@ export function previewMime(
 }
 
 const PDF_MAGIC = '%PDF-';
+/** ISO 32000 whitespace: NUL, HT, LF, FF, CR, SP. */
+const PDF_WHITESPACE = new Set([0x00, 0x09, 0x0a, 0x0c, 0x0d, 0x20]);
 
-/** True when the bytes start with the PDF header. Content type and name are not enough. */
+async function readBlobPrefix(blob: Blob, length: number): Promise<Uint8Array> {
+  const head = blob.slice(0, length);
+  if (typeof head.arrayBuffer === 'function') {
+    return new Uint8Array(await head.arrayBuffer());
+  }
+  return new Promise<Uint8Array>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(head);
+  });
+}
+
+/**
+ * True when the file starts with the PDF header. Content type and name are not enough.
+ * Leading ISO 32000 whitespace (NUL, HT, LF, FF, CR, SP) is skipped; the next bytes must
+ * be `%PDF-`. Nothing later in the file is inspected, so HTML that embeds `%PDF-` is refused.
+ */
 export async function hasPdfHeader(blob: Blob): Promise<boolean> {
-  const head = blob.slice(0, PDF_MAGIC.length);
-  const bytes =
-    typeof head.arrayBuffer === 'function'
-      ? new Uint8Array(await head.arrayBuffer())
-      : await new Promise<Uint8Array>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer));
-          reader.onerror = () => reject(reader.error);
-          reader.readAsArrayBuffer(head);
-        });
-  if (bytes.length < PDF_MAGIC.length) return false;
-  return PDF_MAGIC.split('').every((char, index) => bytes[index] === char.charCodeAt(0));
+  const bytes = await readBlobPrefix(blob, 1024);
+  let offset = 0;
+  while (offset < bytes.length && PDF_WHITESPACE.has(bytes[offset])) {
+    offset += 1;
+  }
+  if (offset + PDF_MAGIC.length > bytes.length) return false;
+  return PDF_MAGIC.split('').every((char, index) => bytes[offset + index] === char.charCodeAt(0));
 }
 
 const MAX_TEXT_BYTES = 2 * 1024 * 1024;
