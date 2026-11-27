@@ -121,7 +121,6 @@ describe('FileViewer preview', () => {
       '<script>alert(1)</script>',
     );
     expect(rendered.container.querySelector('script')).toBeNull();
-    expect(rendered.container.querySelector('script')).toBeNull();
   });
 
   it('follows a non-PDF response when the listing says PDF', async () => {
@@ -163,7 +162,6 @@ describe('FileViewer preview', () => {
         .map((a) => a.name),
     );
     expect(handlers).toEqual([]);
-    expect(article?.querySelector('script')).toBeNull();
     expect(article?.innerHTML.toLowerCase()).not.toContain('<script');
   });
 });
