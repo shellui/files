@@ -12,7 +12,7 @@ export function accessLabelKey(audience: string | undefined): string {
 export function accessRowLabel(
   access: StorageListItem['access'] | undefined,
   fallbackAudience: string | undefined,
-  t: (key: string, opts?: Record<string, unknown>) => string,
+  t: { (key: string): string; (key: string, opts: { count: number }): string },
 ): string {
   const audience = access?.audience || fallbackAudience;
   if (audience === 'restricted') {

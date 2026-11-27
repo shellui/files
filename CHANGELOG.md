@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 See for sample https://raw.githubusercontent.com/favoloso/conventional-changelog-emoji/master/CHANGELOG.md
 -->
 
+## [Unreleased]
+
+### Changed
+
+- **Dependencies**: React 19.3, i18next 27 with react-i18next 17.1.13, react-router-dom 7.18.7, Vite 8.4, autoprefixer 10.7, Prettier 3.10 and other minor updates. `accessRowLabel` types its `t` argument so i18next's `TFunction` fits.
+- **Docker**: Node 26.13.1 (current LTS) for the build and dev stages, `.nvmrc` and CI. nginx-unprivileged 1.31. The publish workflow uses setup-buildx v4.
+
 ## [0.3.0] - 2026-11-18
 
 ### Added
