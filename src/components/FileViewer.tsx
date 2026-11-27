@@ -23,7 +23,7 @@ import {
   formatJsonText,
   isTextTooLarge,
   PREVIEW_HTML_SANITIZE,
-  PREVIEW_IFRAME_SANDBOX,
+  hasPdfHeader,
   previewMime,
   renderMarkdownLite,
   resolveViewerKind,
@@ -145,6 +145,17 @@ export function FileViewer({
           const raw = await blob.text();
           if (cancelled) return;
           setTextContent(loadedKind === 'json' ? formatJsonText(raw) : raw);
+        } else if (loadedKind === 'pdf') {
+          // previewMime() already dropped a listed PDF whose download says otherwise. The
+          // header check refuses anything that only carries a PDF name or type.
+          if (!(await hasPdfHeader(blob))) {
+            if (cancelled) return;
+            setError(t('viewerPdfInvalid'));
+            return;
+          }
+          if (cancelled) return;
+          createdUrl = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+          setObjectUrl(createdUrl);
         } else {
           createdUrl = URL.createObjectURL(blob);
           setObjectUrl(createdUrl);
@@ -324,7 +335,6 @@ export function FileViewer({
           <iframe
             title={target.item.name}
             src={objectUrl}
-            sandbox={PREVIEW_IFRAME_SANDBOX}
             className="h-full min-h-[20rem] w-full border-0 bg-background"
           />
         ) : kind === 'video' && objectUrl ? (

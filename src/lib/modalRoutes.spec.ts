@@ -72,12 +72,16 @@ describe('shell message targets', () => {
   });
 
   it('does not post when the parent origin is unknown', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { parentPostMessage, selfPostMessage } = stubEmbedded(null);
     sendSelectResult({ id: 'req-3', cancelled: true });
     closeAppModal();
     closeAppDrawer();
     expect(parentPostMessage).not.toHaveBeenCalled();
     expect(selfPostMessage).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledTimes(3);
+    expect(warn.mock.calls[0]?.[0]).toContain('SHELLUI_SELECT_STORAGE_RESULT');
+    expect(warn.mock.calls[0]?.[0]).toContain('Parent origin is unknown');
   });
 
   it('clears the hash instead of posting when the modal is standalone', () => {

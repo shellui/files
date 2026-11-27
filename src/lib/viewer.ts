@@ -4,9 +4,6 @@ import type { Config } from 'dompurify';
 export type ViewerKind =
   'image' | 'pdf' | 'video' | 'audio' | 'text' | 'markdown' | 'json' | 'unsupported';
 
-/** Empty sandbox: the preview frame has no extra capability tokens. */
-export const PREVIEW_IFRAME_SANDBOX = '';
-
 /** Tags and URL schemes the Markdown preview is allowed to keep. */
 export const PREVIEW_HTML_SANITIZE: Config = {
   ALLOWED_TAGS: [
@@ -191,6 +188,24 @@ export function previewMime(
     return specificResponse;
   }
   return listed || specificResponse || response || 'application/octet-stream';
+}
+
+const PDF_MAGIC = '%PDF-';
+
+/** True when the bytes start with the PDF header. Content type and name are not enough. */
+export async function hasPdfHeader(blob: Blob): Promise<boolean> {
+  const head = blob.slice(0, PDF_MAGIC.length);
+  const bytes =
+    typeof head.arrayBuffer === 'function'
+      ? new Uint8Array(await head.arrayBuffer())
+      : await new Promise<Uint8Array>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer));
+          reader.onerror = () => reject(reader.error);
+          reader.readAsArrayBuffer(head);
+        });
+  if (bytes.length < PDF_MAGIC.length) return false;
+  return PDF_MAGIC.split('').every((char, index) => bytes[index] === char.charCodeAt(0));
 }
 
 const MAX_TEXT_BYTES = 2 * 1024 * 1024;

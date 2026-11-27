@@ -1,6 +1,22 @@
 /** Shared helpers for Shellui-centered modal hash routes. */
 
-import { postShellMessage } from '@shellui/sdk';
+import { postShellMessage, resolveParentTargetOrigin } from '@shellui/sdk';
+
+/**
+ * Post to the Shellui parent at its own origin. When this frame cannot name the parent
+ * origin nothing is sent (never `*`), and the console says so.
+ */
+function postToShell(message: { type: string; payload?: unknown }): void {
+  if (typeof window === 'undefined') return;
+  if (window.parent !== window) {
+    const origin = resolveParentTargetOrigin();
+    if (!origin || origin === '*' || origin === 'null') {
+      console.warn(`[files] Parent origin is unknown, so ${message.type} was not sent.`);
+      return;
+    }
+  }
+  postShellMessage(message);
+}
 
 function appBaseUrl(): string {
   return (
@@ -161,14 +177,14 @@ export type SelectResultPayload = {
 
 /** Send picker result to Shellui root. Does not close the generic URL modal. */
 export function sendSelectResult(payload: SelectResultPayload): void {
-  postShellMessage({ type: 'SHELLUI_SELECT_STORAGE_RESULT', payload });
+  postToShell({ type: 'SHELLUI_SELECT_STORAGE_RESULT', payload });
 }
 
 /** Close the Shellui modal, or clear the hash when running standalone. */
 export function closeAppModal(): void {
   if (typeof window === 'undefined') return;
   if (window.parent !== window) {
-    postShellMessage({ type: 'SHELLUI_CLOSE_MODAL', payload: {} });
+    postToShell({ type: 'SHELLUI_CLOSE_MODAL', payload: {} });
     return;
   }
   window.location.hash = '';
@@ -178,7 +194,7 @@ export function closeAppModal(): void {
 export function closeAppDrawer(): void {
   if (typeof window === 'undefined') return;
   if (window.parent !== window) {
-    postShellMessage({ type: 'SHELLUI_CLOSE_DRAWER', payload: {} });
+    postToShell({ type: 'SHELLUI_CLOSE_DRAWER', payload: {} });
     return;
   }
   window.location.hash = '';

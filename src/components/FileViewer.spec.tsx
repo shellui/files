@@ -6,6 +6,8 @@ import { FileViewer, type ViewerTarget } from '@/components/FileViewer';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+let NodeBlob: typeof Blob;
+
 const { download } = vi.hoisted(() => ({
   download: vi.fn(),
 }));
@@ -69,6 +71,9 @@ describe('FileViewer preview', () => {
   let root: Root | null = null;
 
   beforeAll(async () => {
+    // Typed through a string so this file needs no @types/node.
+    const nodeBuffer: string = 'node:buffer';
+    NodeBlob = ((await import(/* @vite-ignore */ nodeBuffer)) as { Blob: typeof Blob }).Blob;
     if (!i18n.isInitialized) {
       await new Promise((resolve) => {
         i18n.on('initialized', () => resolve(null));
@@ -77,6 +82,8 @@ describe('FileViewer preview', () => {
   });
 
   beforeEach(() => {
+    // jsdom's Blob has no arrayBuffer(); Node's does, and the PDF header check needs it.
+    vi.stubGlobal('Blob', NodeBlob);
     download.mockReset();
     if (typeof URL.createObjectURL !== 'function') {
       Object.defineProperty(URL, 'createObjectURL', {
@@ -93,6 +100,8 @@ describe('FileViewer preview', () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
     act(() => {
       root?.unmount();
     });
@@ -100,16 +109,33 @@ describe('FileViewer preview', () => {
     document.body.innerHTML = '';
   });
 
-  it('sandboxes a PDF preview frame', async () => {
-    download.mockResolvedValue(blobResponse('%PDF-1.4', 'application/pdf'));
+  it('frames a real PDF without a sandbox, from a blob typed application/pdf', async () => {
+    const created: Blob[] = [];
+    vi.spyOn(URL, 'createObjectURL').mockImplementation((object) => {
+      created.push(object as Blob);
+      return 'blob:preview';
+    });
+    // The download answers with a generic type; the bytes decide.
+    download.mockResolvedValue(blobResponse('%PDF-1.4\n', 'application/octet-stream'));
     const rendered = await renderViewer(target('report.pdf', 'application/pdf'));
     root = rendered.root;
     const frame = rendered.container.querySelector('iframe');
     expect(frame).not.toBeNull();
-    expect(frame?.getAttribute('sandbox')).toBe('');
-    const tokens = (frame?.getAttribute('sandbox') ?? '').split(/\s+/).filter(Boolean);
-    expect(tokens).not.toContain('allow-same-origin');
-    expect(tokens).not.toContain('allow-scripts');
+    expect(frame?.hasAttribute('sandbox')).toBe(false);
+    expect(created).toHaveLength(1);
+    expect(created[0].type).toBe('application/pdf');
+  });
+
+  it('refuses a non-PDF renamed to .pdf', async () => {
+    const create = vi.spyOn(URL, 'createObjectURL');
+    download.mockResolvedValue(
+      blobResponse('<script>alert(1)</script> not a pdf', 'application/pdf'),
+    );
+    const rendered = await renderViewer(target('invoice.pdf', 'application/pdf'));
+    root = rendered.root;
+    expect(rendered.container.querySelector('iframe')).toBeNull();
+    expect(create).not.toHaveBeenCalled();
+    expect(rendered.container.textContent).toContain('not a valid PDF');
   });
 
   it('does not frame a .pdf name whose content type is HTML', async () => {

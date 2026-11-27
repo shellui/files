@@ -167,6 +167,8 @@ const resources = {
       viewerUnsupportedDescription:
         'This browser can’t display {{type}} inline. Download the file to open it locally.',
       viewerTextTooLarge: 'This text file is too large to preview. Download it instead.',
+      viewerPdfInvalid:
+        'This file is not a valid PDF, so it is not previewed. Download it instead.',
       viewerKindImage: 'Image',
       viewerKindPdf: 'PDF',
       viewerKindVideo: 'Video',
@@ -377,6 +379,8 @@ const resources = {
         'Ce navigateur ne peut pas afficher {{type}} en ligne. Téléchargez le fichier pour l’ouvrir.',
       viewerTextTooLarge:
         'Ce fichier texte est trop volumineux pour l’aperçu. Téléchargez-le plutôt.',
+      viewerPdfInvalid:
+        'Ce fichier n’est pas un PDF valide, il n’est donc pas affiché. Téléchargez-le plutôt.',
       viewerKindImage: 'Image',
       viewerKindPdf: 'PDF',
       viewerKindVideo: 'Vidéo',

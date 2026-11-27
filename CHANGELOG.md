@@ -24,8 +24,8 @@ See for sample https://raw.githubusercontent.com/favoloso/conventional-changelog
 ### Security
 
 - **Markdown preview:** Rendered Markdown is sanitized before display.
-- **PDF preview:** Preview type follows the content type, and the preview frame is sandboxed.
-- **Shell messages:** Picker results and close messages post to the parent origin.
+- **PDF preview:** Preview type follows the content type, and a file is framed as a PDF only when its bytes start with `%PDF-`. The frame loads a blob typed `application/pdf`. A file that only has a PDF name or type is not previewed.
+- **Shell messages:** Picker results and close messages post to the parent origin. When the parent origin is unknown nothing is sent and the console warns.
 
 ### Changed
 

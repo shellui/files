@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  PREVIEW_IFRAME_SANDBOX,
-  previewMime,
-  renderMarkdownLite,
-  resolveViewerKind,
-} from '@/lib/viewer';
+import { hasPdfHeader, previewMime, renderMarkdownLite, resolveViewerKind } from '@/lib/viewer';
 
 function activeMarkup(html: string): { tags: string[]; handlers: string[]; hrefs: string[] } {
   const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -54,12 +49,22 @@ describe('previewMime', () => {
   });
 });
 
-describe('PREVIEW_IFRAME_SANDBOX', () => {
-  it('grants no same-origin access and no scripts', () => {
-    const tokens = PREVIEW_IFRAME_SANDBOX.split(/\s+/).filter(Boolean);
-    expect(tokens).not.toContain('allow-same-origin');
-    expect(tokens).not.toContain('allow-scripts');
-    expect(tokens).not.toContain('allow-top-navigation');
+describe('hasPdfHeader', () => {
+  const blobOf = (body: string) => new Blob([body], { type: 'application/pdf' });
+
+  it('accepts bytes that start with %PDF-', async () => {
+    expect(await hasPdfHeader(blobOf('%PDF-1.7\n%binary'))).toBe(true);
+  });
+
+  it('refuses other content that only has a PDF type or name', async () => {
+    expect(await hasPdfHeader(blobOf('<html><script>alert(1)</script></html>'))).toBe(false);
+    expect(await hasPdfHeader(blobOf('plain text renamed to .pdf'))).toBe(false);
+    expect(await hasPdfHeader(blobOf(' %PDF-1.4'))).toBe(false);
+  });
+
+  it('refuses empty and truncated files', async () => {
+    expect(await hasPdfHeader(blobOf(''))).toBe(false);
+    expect(await hasPdfHeader(blobOf('%PDF'))).toBe(false);
   });
 });
 
