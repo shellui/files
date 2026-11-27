@@ -80,9 +80,7 @@ describe('hasPdfHeader', () => {
 
   it('refuses HTML that only contains %PDF- later in the file', async () => {
     expect(
-      await hasPdfHeader(
-        blobOf('<!doctype html><html><body>not a pdf %PDF-1.7</body></html>'),
-      ),
+      await hasPdfHeader(blobOf('<!doctype html><html><body>not a pdf %PDF-1.7</body></html>')),
     ).toBe(false);
   });
 
