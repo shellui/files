@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import DOMPurify from 'dompurify';
 import {
   ChevronLeft,
   ChevronRight,
@@ -21,6 +22,9 @@ import { shellui } from '@shellui/sdk';
 import {
   formatJsonText,
   isTextTooLarge,
+  PREVIEW_HTML_SANITIZE,
+  hasPdfHeader,
+  previewMime,
   renderMarkdownLite,
   resolveViewerKind,
   type ViewerKind,
@@ -133,7 +137,7 @@ export function FileViewer({
       try {
         const blob = unwrapStorage(await shellui.storage.from(bucket).download(target.path));
         if (cancelled) return;
-        const mime = listedMime || blob.type || 'application/octet-stream';
+        const mime = previewMime(blob.type, listedMime);
         setResolvedMime(mime);
         const loadedKind = resolveViewerKind(mime, target.item.name);
 
@@ -141,6 +145,17 @@ export function FileViewer({
           const raw = await blob.text();
           if (cancelled) return;
           setTextContent(loadedKind === 'json' ? formatJsonText(raw) : raw);
+        } else if (loadedKind === 'pdf') {
+          // previewMime() already dropped a listed PDF whose download says otherwise. The
+          // header check refuses anything that only carries a PDF name or type.
+          if (!(await hasPdfHeader(blob))) {
+            if (cancelled) return;
+            setError(t('viewerPdfInvalid'));
+            return;
+          }
+          if (cancelled) return;
+          createdUrl = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+          setObjectUrl(createdUrl);
         } else {
           createdUrl = URL.createObjectURL(blob);
           setObjectUrl(createdUrl);
@@ -210,10 +225,10 @@ export function FileViewer({
     }
   }, [authFailed, bucket, target.path, target.item.name, t]);
 
-  const markdownHtml = useMemo(
-    () => (kind === 'markdown' && textContent != null ? renderMarkdownLite(textContent) : null),
-    [kind, textContent],
-  );
+  const markdownHtml = useMemo(() => {
+    if (kind !== 'markdown' || textContent == null) return null;
+    return DOMPurify.sanitize(renderMarkdownLite(textContent), PREVIEW_HTML_SANITIZE);
+  }, [kind, textContent]);
 
   const embedded = variant === 'embedded';
   const mediaMaxClass = embedded ? 'max-h-full max-w-full' : 'max-h-[calc(100vh-12rem)] max-w-full';
